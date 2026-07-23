@@ -133,8 +133,9 @@ def slide_role(num: int, total: int) -> str:
     return "valor"
 
 
-def build_prompt(slide: Dict, role: str, marca: Dict) -> str:
-    """Construye el prompt de imagen para una lamina, usando la marca del usuario."""
+def build_prompt(slide: Dict, role: str, marca: Dict, total: int, ancla: bool = False) -> str:
+    """Construye el prompt de imagen para una lamina.
+    total = numero de laminas; ancla = True cuando se adjunta la portada como referencia de estilo."""
     colores = marca.get("colores", {})
     c_prim = colores.get("primario", "#111111")
     c_sec = colores.get("secundario", "#6F00FF")
@@ -143,8 +144,17 @@ def build_prompt(slide: Dict, role: str, marca: Dict) -> str:
     tipografia = marca.get("tipografia", "sans-serif bold, limpia y moderna")
     estilo = marca.get("estilo_visual", "ilustracion flat minimalista, alto contraste")
     handle = marca.get("instagram_usuario", "@tu_usuario")
+    num = slide["number"]
 
-    base = f"""Diseño de una lamina vertical para carrusel de Instagram (formato vertical, mas alto que ancho).
+    ref = ""
+    if ancla:
+        ref = ("REFERENCIA DE ESTILO: la imagen adjunta es la PORTADA de este mismo carrusel. Copia EXACTAMENTE su\n"
+               "sistema visual (paleta, tipografia, tratamiento grafico, texturas y estilo de composicion) para que\n"
+               "TODAS las laminas se vean como una serie coherente. NO copies su texto ni su contenido — solo el estilo.\n\n")
+    flecha = ('- En el borde derecho, una flecha "→" pequeña y discreta que invite a deslizar a la siguiente lamina.\n'
+              if num < total else "")
+
+    base = f"""{ref}Diseño de una lamina vertical para carrusel de Instagram (formato vertical, mas alto que ancho).
 
 IDENTIDAD DE MARCA (respetala estrictamente):
 - Estilo visual: {estilo}
@@ -155,7 +165,8 @@ IDENTIDAD DE MARCA (respetala estrictamente):
   NO lo traduzcas al ingles ni a otro idioma, NO lo parafrasees, NO cambies ni agregues palabras.
 - No escribas dentro de la imagen ninguna medida, dimension, proporcion, unidad ni etiqueta tecnica,
   ni nombres internos de seccion; unicamente el mensaje real de la lamina.
-- SIN marcas de agua, SIN logos ajenos, SIN rostros de personas reales.
+- ELEMENTO DE SERIE: un indicador pequeño y discreto "{num}/{total}" en una esquina inferior, en el color del texto, SIEMPRE en la misma posicion.
+{flecha}- SIN marcas de agua, SIN logos ajenos, SIN rostros de personas reales.
 
 """
 
@@ -202,23 +213,24 @@ REQUISITOS:
 - Debe sentirse como una invitacion entre personas, no como un anuncio.
 - Incluye de forma clara y destacada el usuario: "{handle}".
 - COHERENCIA DE MARCA (critico): usa EXACTAMENTE la misma paleta del resto del carrusel.
-  El color acento protagonista es {c_sec} (no lo cambies por naranjas, rojos ni otros tonos "calidos").
+  El color acento protagonista es {c_sec}.
   Puede ser un bloque grande de {c_sec} o el fondo {c_fondo} con {c_sec} de acento fuerte.
-- Refuerza la accion de forma visual (una flecha, un boton) sin saturar.
+- Refuerza la accion con un elemento visual (una flecha hacia el usuario o un boton) sin saturar.
+- Al ser la ULTIMA lamina, NO incluyas la flecha de "deslizar →" en la esquina (ya no hay siguiente).
 """
 
 
-def create_task(api_key: str, prompt: str) -> Optional[str]:
+def create_task(api_key: str, prompt: str, image_input: Optional[List[str]] = None) -> Optional[str]:
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    payload = {
-        "model": MODEL,
-        "input": {
-            "prompt": prompt,
-            "aspect_ratio": ASPECT_RATIO,
-            "resolution": RESOLUTION,
-            "output_format": FORMAT,
-        },
+    input_params = {
+        "prompt": prompt,
+        "aspect_ratio": ASPECT_RATIO,
+        "resolution": RESOLUTION,
+        "output_format": FORMAT,
     }
+    if image_input:  # imagenes de referencia (ej. la portada como molde de estilo)
+        input_params["image_input"] = image_input
+    payload = {"model": MODEL, "input": input_params}
     try:
         r = requests.post(KIE_CREATE_TASK, headers=headers, json=payload, timeout=30)
         r.raise_for_status()
@@ -323,7 +335,7 @@ def main():
         for s in slides:
             role = slide_role(s["number"], total)
             print(f"\n--- Lamina {s['number']} ({role}) ---")
-            print(build_prompt(s, role, marca)[:600] + "...")
+            print(build_prompt(s, role, marca, total, ancla=(role != "gancho"))[:600] + "...")
         print("\n(dry-run) No se genero nada. Quita --dry-run para generar.")
         return
 
@@ -331,59 +343,94 @@ def main():
     laminas_dir = bundle_path / "laminas"
     laminas_dir.mkdir(exist_ok=True)
 
-    # Enviar tareas en paralelo
-    print(f"\n{'='*60}\nENVIANDO TAREAS\n{'='*60}\n")
-    pending = {}
+    manifest_path = laminas_dir / "manifest.json"
     start = time.time()
-    for s in slides:
+    generated = []
+    cover_num = 1 if any(s["number"] == 1 for s in slides) else slides[0]["number"]
+
+    # --- FASE 1: la PORTADA primero. Sera el molde de estilo de las demas laminas. ---
+    cover_url = None
+    regen_cover = (not only) or (cover_num in only)
+    if regen_cover:
+        print(f"\n{'='*60}\nFASE 1 — PORTADA (molde de estilo)\n{'='*60}\n")
+        cs = next(s for s in slides if s["number"] == cover_num)
+        tid = create_task(api_key, build_prompt(cs, slide_role(cover_num, total), marca, total))
+        cover_url = poll_task(api_key, tid, "[Portada]") if tid else None
+        if cover_url and download(cover_url, laminas_dir / f"lamina-{cover_num:02d}.png"):
+            print(f"   ✅ Portada -> lamina-{cover_num:02d}.png")
+            generated.append({"id": cover_num, "role": "gancho", "title": cs["title"],
+                              "file": f"lamina-{cover_num:02d}.png", "url": cover_url})
+        else:
+            print("   ⚠️  No se pudo generar la portada; las demas iran sin molde.")
+            cover_url = None
+    else:
+        # regenerando solo laminas internas: recuperar la URL de la portada del manifest
+        if manifest_path.exists():
+            try:
+                prev = json.loads(manifest_path.read_text(encoding="utf-8"))
+                cover_url = next((l.get("url") for l in prev.get("laminas", []) if l.get("id") == cover_num), None)
+            except Exception:
+                cover_url = None
+
+    # --- FASE 2: las demas laminas en paralelo, usando la portada como referencia de estilo. ---
+    rest = [s for s in slides if s["number"] != cover_num and (not only or s["number"] in only)]
+    pending = {}
+    for s in rest:
         n = s["number"]
-        if only and n not in only:
-            continue
         role = slide_role(n, total)
-        task_id = create_task(api_key, build_prompt(s, role, marca))
-        if task_id:
-            pending[n] = {"task_id": task_id, "slide": s, "role": role}
-            print(f"   ✅ Lamina {n} enviada ({task_id[:12]}...)")
+        tid = create_task(api_key, build_prompt(s, role, marca, total, ancla=bool(cover_url)),
+                          image_input=[cover_url] if cover_url else None)
+        if tid:
+            pending[n] = {"task_id": tid, "slide": s, "role": role}
+            print(f"   ✅ Lamina {n} enviada ({tid[:12]}...)")
         else:
             print(f"   ❌ Lamina {n} no se pudo enviar")
 
-    if not pending:
-        print("\n❌ No se creo ninguna tarea. Revisa tu llave y tus creditos de Kie AI.")
+    if pending:
+        print(f"\n{'='*60}\nFASE 2 — {len(pending)} laminas en paralelo{' (con molde de la portada)' if cover_url else ''}\n{'='*60}\n")
+        with ThreadPoolExecutor(max_workers=len(pending)) as ex:
+            futures = {ex.submit(poll_task, api_key, info["task_id"], f"[Lamina {n}]"): n
+                       for n, info in pending.items()}
+            for fut in as_completed(futures):
+                n = futures[fut]
+                url = fut.result()
+                if not url:
+                    print(f"   ❌ Lamina {n} sin resultado")
+                    continue
+                if download(url, laminas_dir / f"lamina-{n:02d}.png"):
+                    print(f"   ✅ Lamina {n} -> lamina-{n:02d}.png")
+                    info = pending[n]
+                    generated.append({"id": n, "role": info["role"], "title": info["slide"]["title"],
+                                      "file": f"lamina-{n:02d}.png", "url": url})
+
+    if not generated:
+        print("\n❌ No se genero ninguna lamina. Revisa tu llave y tus creditos de Kie AI.")
         sys.exit(1)
 
-    # Poll en paralelo
-    print(f"\n{'='*60}\nGENERANDO ({len(pending)} laminas en paralelo)\n{'='*60}\n")
-    generated = []
-    with ThreadPoolExecutor(max_workers=len(pending)) as ex:
-        futures = {ex.submit(poll_task, api_key, info["task_id"], f"[Lamina {n}]"): n
-                   for n, info in pending.items()}
-        for fut in as_completed(futures):
-            n = futures[fut]
-            url = fut.result()
-            if not url:
-                print(f"   ❌ Lamina {n} sin resultado")
-                continue
-            out = laminas_dir / f"lamina-{n:02d}.png"
-            if download(url, out):
-                print(f"   ✅ Lamina {n} -> {out.name}")
-                info = pending[n]
-                generated.append({"id": n, "role": info["role"],
-                                  "title": info["slide"]["title"], "file": out.name})
+    # Merge con manifest previo (para no perder laminas al regenerar solo algunas)
+    laminas_map = {}
+    if manifest_path.exists():
+        try:
+            for l in json.loads(manifest_path.read_text(encoding="utf-8")).get("laminas", []):
+                laminas_map[l["id"]] = l
+        except Exception:
+            pass
+    for l in generated:
+        laminas_map[l["id"]] = l
+    laminas_all = [laminas_map[k] for k in sorted(laminas_map)]
 
-    generated.sort(key=lambda x: x["id"])
     manifest = {
         "generado": datetime.now().isoformat(timespec="seconds"),
         "negocio": marca.get("negocio"),
         "instagram_usuario": marca.get("instagram_usuario"),
-        "total": len(generated),
-        "laminas": generated,
+        "total": len(laminas_all),
+        "laminas": laminas_all,
     }
-    (laminas_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False),
-                                               encoding="utf-8")
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
     elapsed = int(time.time() - start)
     print(f"\n{'='*60}\nLISTO\n{'='*60}")
-    print(f"Laminas: {len(generated)}/{len(pending)}")
+    print(f"Laminas generadas ahora: {len(generated)}")
     print(f"Carpeta: {laminas_dir}")
     print(f"Costo aprox: ~${len(generated) * 0.10:.2f} | Tiempo: {elapsed//60}m {elapsed%60}s")
     print(f"\nSiguiente paso: publicar con scripts/publicar.py\n")
