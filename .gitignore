@@ -1,0 +1,16 @@
+# Llaves y marca personal — nunca subir
+.env
+config/marca.json
+
+# Salidas generadas (carruseles del usuario)
+outputs/*
+!outputs/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Sistema
+.DS_Store

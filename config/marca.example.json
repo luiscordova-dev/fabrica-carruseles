@@ -1,0 +1,14 @@
+{
+  "negocio": "Pastelería artesanal: hacemos pasteles y postres por encargo para fiestas y eventos.",
+  "tono": "cálido, cercano y antojable; hablamos de tú, con alegría.",
+  "colores": {
+    "primario": "#7A3B2E",
+    "secundario": "#E8A0BF",
+    "fondo": "#FFF8F0",
+    "texto": "#3A2A25"
+  },
+  "tipografia": "sans-serif redondeada y amable, muy legible.",
+  "estilo_visual": "ilustración flat cálida, formas suaves, mucho aire, apetecible, sin fotos de stock.",
+  "instagram_usuario": "@tu_pasteleria",
+  "upload_post_user": ""
+}
