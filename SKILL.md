@@ -97,19 +97,23 @@ una llave, usa **Grep** con el patrón `^KIE_API_KEY=.` — **nunca imprimas el 
 Hazle estas preguntas, **una a la vez** (no todas de golpe). Esto define cómo se verán y sonarán
 TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
 
-1. **¿De qué es tu negocio?** (en 1-2 frases: qué haces y para quién)
+1. **¿Cómo se llama tu negocio y de qué es?** (el nombre + en 1-2 frases: qué haces y para quién)
 2. **¿Cómo quieres que suene?** (el tono: cercano, directo, formal, divertido, retador…)
-3. **¿Tus colores?** (pídele 2-4 colores; si sabe los hex, genial; si no, descríbelos y tú los
-   traduces a hex. Guarda: primario, secundario/acento, fondo, texto.)
-4. **¿Qué estilo visual quieres?** Dale opciones para que elija: *flat minimalista*, *acuarela /
-   pintura*, *3D*, *editorial/revista*, *retro*, *neón*… (o que describa el suyo).
+3. **¿Tus colores?** Ofrécele las dos vías tal cual: *"dime tus colores (o sus códigos), **o pásame
+   una foto de tu logo/marca y yo te saco los colores**"*. Si manda una imagen, **míratela y extrae
+   los hex** (primario, secundario/acento, fondo, texto) y confírmaselos.
+4. **¿Qué estilo visual quieres para las imágenes?** Ofrécele referencias: *"¿ya tienes carruseles o
+   posts con un estilo que te gusta? **Pásame una captura o la imagen** y lo replico. Si no, elige
+   uno: flat minimalista, acuarela/pintura, 3D, editorial, retro, neón…"*. Si manda referencias,
+   **descríbelas a detalle** (colores, formas, tipografía, textura, composición) y usa esa
+   descripción como `estilo_visual`.
 5. **¿Cuál es tu usuario de Instagram?** (ej. @sunegocio)
 
 Con eso, **propón** una **tipografía** legible que pegue con su estilo (que solo confirme). Muestra
 un resumen corto y pide confirmación:
 
 > A ver si te entendí. Tu marca:
-> - Negocio: […]
+> - Negocio: […nombre…] — […qué hace…]
 > - Tono: […]
 > - Colores: […]
 > - Estilo visual: […]

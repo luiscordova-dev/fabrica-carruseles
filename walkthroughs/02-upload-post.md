@@ -8,10 +8,23 @@ Tiene un plan **gratis: 10 publicaciones al mes, sin tarjeta**. Suficiente para 
 
 ## Requisito importante de Instagram (dilo antes de empezar)
 
-> Para que se pueda publicar por API, tu cuenta de Instagram tiene que ser **Business o
-> Creator** y estar **vinculada a una página de Facebook**. Esto es un requisito de Meta,
-> no de nosotros. Si tu cuenta es personal, cámbiala a Creator (es gratis, desde la
-> configuración de Instagram) y vincúlala a una página de Facebook.
+Para publicar por API, la cuenta de Instagram debe ser **Business o Creator** y estar **ligada a
+una página de Facebook** (requisito de Meta, no nuestro). Si ya lo tiene, salta esto. Si tiene IG
+**personal**, guíala a dejarlo listo — es gratis y toma ~5 minutos:
+
+**Convertir Instagram a Profesional (desde el celular):**
+1. Abre Instagram → tu perfil → menú **☰** (arriba a la derecha) → **Configuración y privacidad**.
+2. Busca **Tipo de cuenta y herramientas** (o "Cuenta") → **Cambiar a cuenta profesional**.
+3. Elige **Creador** o **Empresa** (cualquiera sirve). Elige una categoría y confirma.
+
+**Ligar una página de Facebook:**
+1. En ese mismo flujo (o en Configuración → **Compartir en otras apps → Facebook**) te pide
+   **conectar una página de Facebook**.
+2. Si no tienes una, créala gratis en facebook.com → **Páginas → Crear** (nombre = tu negocio).
+3. Conéctala a tu Instagram profesional.
+
+Si en cualquier paso se pierde, **que te mande una captura** y le dices exactamente dónde picar.
+Cuando ya sea Business/Creator + página de Facebook, sigan con la llave de Upload Post.
 
 ## Guíalo así (paso a paso)
 
