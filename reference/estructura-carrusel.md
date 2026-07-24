@@ -87,14 +87,30 @@ la aplica automáticamente al generar; aquí queda para que la entiendas y escri
 ### Anatomía DEFAULT (fija) — máximo 5 elementos por slide, ~30 palabras en total
 1. **EYEBROW** (opcional): etiqueta de 1–3 palabras arriba (ej. "PASO 2", "EL ERROR #1"). Da contexto antes del título. Solo si aporta.
 2. **TÍTULO** grande (≤8 palabras), con **UNA palabra clave en el color de acento** de la marca (subrayada o coloreada — elige una convención por serie y mantenla).
-3. **SUBTÍTULO** de apoyo: 1 línea, ≤10 palabras.
-4. **CUERPO** — UNA sola decisión por slide: **(a)** 2–3 bullets con marcador de punto de color (≤7 palabras cada uno, keywords en negrita); **o (b)** un visual protagonista (foto/ilustración). Si hay visual protagonista, máximo 1 bullet o ninguno. **NUNCA** bullets largos + visual grande compitiendo.
+3. **SUBTÍTULO** de apoyo: 1 línea, ≤10 palabras. **No puede repetir el contenido de un bullet**; si el texto ya queda cubierto por los bullets, se **omite** el subtítulo y se va directo del título a los bullets.
+4. **CUERPO** — UNA sola decisión por slide, decidida por cuántas ideas trae el copy (regla estructural, no preferencia):
+   - **2 o más bullets → el texto manda.** El visual pasa a **secundario**: pequeño, de apoyo, integrado en una esquina o como textura/ambiente de fondo. **NUNCA** un visual protagonista a media pantalla compitiendo con los bullets.
+   - **0–1 idea de texto → el visual es protagonista** (integrado en la escena). A lo sumo 1 línea de apoyo; nada de listas.
 5. **SERIE**: el número **`n/total`** discreto, en la **esquina inferior derecha**, con instrucción idéntica en todas las slides. **@usuario solo en portada y cierre.**
 
 **Portada (slide 1):** gancho grande + subtítulo + un elemento protagonista.
 **Cierre (última):** CTA + @usuario integrado en el footer.
 
 **No hay flecha de "deslizar →"**: se quitó porque salía inconsistente y ensuciaba la composición.
+
+### Tratamiento del visual (SIEMPRE integrado)
+El elemento visual **vive dentro de la composición**, jamás como una foto recortada pegada en un
+bloque. Es un atributo de la estética del usuario (`tratamiento_visual`):
+- **`escena-fotografica`** — el producto/objeto está en una **escena real**: sobre una superficie o
+  plato, con **luz natural y sombras suaves** que lo anclan al **mismo fondo** de la slide, encuadre
+  editorial. El texto se acomoda sobre las zonas limpias de esa foto.
+- **`ilustracion`** — el dibujo/gráfico está **fundido con el diseño**: comparte fondo, paleta y trazo,
+  sin recuadro propio.
+
+**Prohibido** (se veta explícito en el prompt): fotos recortadas dentro de un rectángulo/bloque, collage
+de foto pegada, y el layout **"columna de texto a un lado + bloque de imagen al otro" tipo diapositiva
+de PowerPoint**. Eso se ve barato y "de diapositiva". Si no viene el campo, se infiere del `estilo_visual`
+(p. ej. "luz natural / producto en primer plano" → escena-fotográfica; "flat / vector" → ilustración).
 
 ### Densidad (campo `densidad` de la marca)
 Regula solo **cuántos bullets** entran en el cuerpo (opción a); la anatomía no cambia:

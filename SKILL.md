@@ -119,6 +119,10 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
    por tu cuenta** — solo si la referencia los trae. Si una referencia usa un **badge** o una **barra de
    progreso** como marca de serie, guárdalo en `marca.json` como `elemento_serie` (`"badge"` | `"barra"`;
    default `"numero"`), y esa única convención se mantiene en toda la serie.
+   **Captura también el tratamiento del visual** (`tratamiento_visual`): `"escena-fotografica"` (producto/objeto
+   real en escena, con luz y sombras) o `"ilustracion"` (dibujo/gráfico fundido con el diseño). Si no lo dice,
+   se infiere del estilo (para "luz natural / producto en primer plano" → escena-fotográfica; para "flat / vector"
+   → ilustración). **El visual SIEMPRE va integrado en la escena, nunca como foto recortada en un bloque tipo diapositiva.**
 5. **¿Cómo quieres tus slides de densidad?** *"¿las quieres **aireadas** (poco texto, mucho espacio) o
    **completas** (tipo mini-guía, con más info por slide)?"* Guárdalo en `marca.json` como `densidad`
    (`"aireada"` | `"completa"`; si no contesta, queda `"media"`).
@@ -139,7 +143,8 @@ un resumen corto y pide confirmación:
 Cuando confirme, **escribe `config/marca.json`** (usa `config/marca.example.json` como plantilla,
 campos: `negocio`, `tono`, `colores{primario,secundario,fondo,texto}`, `tipografia`, `estilo_visual`,
 `densidad`, `instagram_usuario`, `upload_post_user`; opcional `elemento_serie` — `"numero"` (default) |
-`"badge"` | `"barra"`, solo si modelas una referencia con esa marca de serie). Hay un campo **opcional** `plataformas` (lista de redes por
+`"badge"` | `"barra"`, solo si modelas una referencia con esa marca de serie; opcional `tratamiento_visual` —
+`"escena-fotografica"` | `"ilustracion"` (si falta, se infiere del `estilo_visual`)). Hay un campo **opcional** `plataformas` (lista de redes por
 defecto donde publicar, ej. `["instagram", "tiktok"]`); si no lo pones, se publica solo en Instagram.
 La palabra de llamado a la acción **NO va aquí**: se decide por carrusel (Paso 3).
 

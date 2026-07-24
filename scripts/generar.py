@@ -113,6 +113,27 @@ def densidad_de(marca: Dict) -> str:
     return d if d in DENSIDADES_VALIDAS else "media"
 
 
+TRATAMIENTOS_VISUALES = {"escena-fotografica", "ilustracion"}
+
+
+def tratamiento_visual_de(marca: Dict) -> str:
+    """Como se resuelve el elemento visual: 'escena-fotografica' (producto/objeto real en escena con
+    luz y sombras) o 'ilustracion' (dibujo/vector fundido con el diseño). Es un atributo de la ESTETICA
+    del usuario. Si el campo no viene, se infiere del estilo_visual; ante empate, 'ilustracion'
+    (coincide con el estilo por defecto de la skill)."""
+    t = str(marca.get("tratamiento_visual", "")).strip().lower()
+    if t in TRATAMIENTOS_VISUALES:
+        return t
+    estilo = str(marca.get("estilo_visual", "")).lower()
+    foto_signals = ["foto", "fotograf", "luz natural", "escena", "producto en primer plano",
+                    "editorial", "stock", "primer plano"]
+    ilus_signals = ["ilustracion", "ilustración", "flat", "vector", "dibujo", "3d", "render",
+                    "acuarela", "grafico", "gráfico", "isometric"]
+    foto = sum(1 for s in foto_signals if s in estilo)
+    ilus = sum(1 for s in ilus_signals if s in estilo)
+    return "escena-fotografica" if foto > ilus else "ilustracion"
+
+
 def parse_carrusel(bundle_path: Path) -> Optional[List[Dict]]:
     """
     Lee carrusel.md y extrae las slides.
@@ -209,6 +230,27 @@ def extras_prohibidos(elemento_serie: str) -> str:
             ": no son parte de la anatomia default (solo entran si el usuario los trae en sus referencias).")
 
 
+def contar_bullets(body: str) -> int:
+    """Cuenta las lineas no vacias del cuerpo = cuantos bullets/ideas trae la slide."""
+    return len([ln for ln in (body or "").splitlines() if ln.strip()])
+
+
+def tratamiento_visual_instr(tratamiento: str) -> str:
+    """Instruccion de COMO se integra el elemento visual. Redactada en positivo (lo que SI debe pasar)
+    + veto explicito, porque los modelos obedecen mejor lo generativo que la sola prohibicion.
+    El visual SIEMPRE vive dentro de la composicion, jamas como bloque recortado tipo diapositiva."""
+    if tratamiento == "escena-fotografica":
+        positivo = ("el producto/objeto vive DENTRO de una escena fotografica real: sobre una superficie o plato, "
+                    "con luz natural y sombras suaves que lo anclan al mismo fondo de la slide, encuadre editorial. "
+                    "El texto se acomoda sobre las zonas limpias de esa misma foto")
+    else:
+        positivo = ("la ilustracion/grafico esta FUNDIDA con el diseño: comparte fondo, paleta y trazo con el resto de "
+                    "la slide, sin recuadro propio, integrada como parte de la composicion")
+    return ("TRATAMIENTO DEL VISUAL (critico): " + positivo + ". El elemento visual va integrado, sin marcos ni bordes "
+            "duros. PROHIBIDO: fotos recortadas dentro de un rectangulo o bloque, collage de foto pegada, y el layout "
+            "'columna de texto a un lado + bloque de imagen al otro' tipo diapositiva de PowerPoint. Nada de ese aspecto.")
+
+
 def anatomia_valor(densidad: str) -> str:
     """Cuantos bullets lleva el cuerpo (opcion a) de una slide de valor, segun la densidad elegida.
     La densidad regula CUANTA info por slide; la estetica la pone la marca, no esta funcion.
@@ -236,6 +278,7 @@ def build_prompt(slide: Dict, role: str, marca: Dict, total: int, ancla: bool = 
     handle = marca.get("instagram_usuario", "@tu_usuario")
     densidad = densidad_de(marca)
     elemento_serie = elemento_serie_de(marca)
+    tratamiento = tratamiento_visual_de(marca)
     num = slide["number"]
 
     ref = ""
@@ -265,6 +308,7 @@ ANATOMIA FIJA DE LA SERIE (maximo 5 elementos por slide, ~30 palabras en total �
 - Densidad CON orden: elementos alineados a una reticula, con aire; nunca texto flotando en el vacio ni amontonado. Se ve llena y ordenada, sin saturar.
 - Presupuesto de texto ESTRICTO: titulo <=8 palabras, subtitulo <=10 palabras, bullets <=7 palabras. Cero parrafos. Mas texto y mas elementos = mas deriva de posicion y mas errores al renderizar.
 - {extras_prohibidos(elemento_serie)}
+- {tratamiento_visual_instr(tratamiento)}
 - Footer integrado como parte del diseño, no elementos sueltos flotando.
 - {numero_serie_instr(num, total, elemento_serie)}
 
@@ -290,6 +334,17 @@ REQUISITOS:
 """
 
     if role == "valor":
+        n_bullets = contar_bullets(body)
+        if n_bullets >= 2:
+            cuerpo = (f"  - CUERPO = BULLETS (esta slide trae {n_bullets} ideas): el texto manda. El visual es SECUNDARIO: "
+                      "pequeño y de apoyo, integrado en una esquina o como textura/ambiente del fondo, NUNCA un visual "
+                      "protagonista a media pantalla que compita con los bullets.\n"
+                      f"{anatomia_valor(densidad)}\n"
+                      "  - SUBTITULO: no repitas el contenido de ningun bullet. Si el texto ya queda cubierto por los bullets, "
+                      "OMITE el subtitulo y ve directo del titulo a los bullets.")
+        else:
+            cuerpo = ("  - CUERPO = VISUAL PROTAGONISTA (esta slide trae 0-1 idea de texto): el elemento visual es el heroe, "
+                      "integrado en la escena. A lo sumo 1 linea de apoyo; nada de listas de bullets.")
         return base + f"""SLIDE INTERMEDIA (contenido util) — anatomia de slide de valor.
 
 Titulo de la slide:
@@ -299,10 +354,10 @@ Contenido (respeta los bullets/pasos tal cual, texto legible):
 "{body}"
 
 REQUISITOS:
-- Anatomia: (eyebrow opcional) + titulo + subtitulo de apoyo + CUERPO + serie. Jerarquia clara de arriba a abajo.
+- Anatomia: (eyebrow opcional) + titulo + [subtitulo solo si aporta] + CUERPO + serie. Jerarquia clara de arriba a abajo.
 - Resalta UNA palabra clave del titulo con el color de acento {c_sec} (coloreada o subrayada), con la MISMA convencion en toda la serie.
-- El CUERPO es UNA sola decision, nunca las dos compitiendo: (a) bullets escaneables, o (b) un visual protagonista.
-{anatomia_valor(densidad)}
+- El CUERPO es UNA sola decision, JAMAS bullets Y visual protagonista compitiendo:
+{cuerpo}
 - Fondo limpio {c_fondo}, acentos en {c_sec}. Consistente con la portada.
 """
 
