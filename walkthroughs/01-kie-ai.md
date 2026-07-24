@@ -3,6 +3,9 @@
 Kie AI es el servicio que dibuja cada slide del carrusel (usa el modelo nano-banana-pro).
 Cuesta muy poco: alrededor de **$0.10 USD por imagen** (un carrusel de 6 slides ≈ $0.60).
 
+**La recarga mínima son $5 USD = 1,000 créditos.** A ~$0.10 por slide, con esos $5 haces **~50 slides ≈
+8 carruseles completos** de 6. Es normal que pida un mínimo; con $5 tienes para rato.
+
 ## Guíalo así (paso a paso)
 
 > Vamos por la llave que crea las imágenes. Es como una contraseña que le da permiso

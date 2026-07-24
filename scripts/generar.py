@@ -25,6 +25,7 @@ import sys
 import json
 import time
 import re
+import base64
 import argparse
 import requests
 from pathlib import Path
@@ -42,17 +43,24 @@ except ImportError:
 # --- Rutas de la skill ---
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 MARCA_FILE = SKILL_ROOT / "config" / "marca.json"
+# Referencias visuales del usuario (capturas de carruseles que le gustan). Se guardan una vez y se
+# suben FRESCAS a Kie en cada corrida (las URLs de archivos de Kie expiran ~24h).
+REFERENCIAS_DIR = SKILL_ROOT / "config" / "referencias"
+REF_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+MAX_REF_BYTES = 10 * 1024 * 1024   # 10MB por archivo (limite de la File Upload API)
 
 # --- API Kie AI (nano-banana-pro) ---
 KIE_API_BASE = "https://api.kie.ai/api/v1/jobs"
 KIE_CREATE_TASK = f"{KIE_API_BASE}/createTask"
 KIE_RECORD_INFO = f"{KIE_API_BASE}/recordInfo"
+KIE_FILE_UPLOAD = "https://kieai.redpandaai.co/api/file-base64-upload"  # sube archivos (no gasta creditos de generacion)
 MODEL = "nano-banana-pro"
 ASPECT_RATIO = "4:5"   # Instagram carrusel (vertical). El encuadre va SOLO por este parametro,
 RESOLUTION = "1K"      # nunca en el prompt. 1K (~1024px) basta para IG y es mas rapido/barato que 2K/4K.
 FORMAT = "png"
 MAX_POLL_ATTEMPTS = 120   # ~10 min por slide: Kie AI a veces encola y tarda varios minutos
 POLL_INTERVAL = 5
+MAX_IMAGE_INPUT = 8       # tope de imagenes de referencia por tarea (nano-banana-pro)
 
 
 def get_api_key() -> str:
@@ -113,13 +121,15 @@ def densidad_de(marca: Dict) -> str:
     return d if d in DENSIDADES_VALIDAS else "media"
 
 
-TRATAMIENTOS_VISUALES = {"escena-fotografica", "ilustracion"}
+TRATAMIENTOS_VISUALES = {"escena-fotografica", "ilustracion", "graficos"}
 
 
 def tratamiento_visual_de(marca: Dict) -> str:
-    """Como se resuelve el elemento visual: 'escena-fotografica' (producto/objeto real en escena con
-    luz y sombras) o 'ilustracion' (dibujo/vector fundido con el diseño). Es un atributo de la ESTETICA
-    del usuario. Si el campo no viene, se infiere del estilo_visual; ante empate, 'ilustracion'
+    """Como se resuelve el elemento visual (atributo de la ESTETICA del usuario):
+    'escena-fotografica' (producto/objeto real en escena con luz y sombras),
+    'ilustracion' (dibujo/caricatura/vector fundido con el diseño), o
+    'graficos' (esquemas/diagramas con iconos, flechas y anotaciones, estilo educativo).
+    Si el campo no viene, se infiere del estilo_visual; ante empate, 'ilustracion'
     (coincide con el estilo por defecto de la skill)."""
     t = str(marca.get("tratamiento_visual", "")).strip().lower()
     if t in TRATAMIENTOS_VISUALES:
@@ -127,11 +137,98 @@ def tratamiento_visual_de(marca: Dict) -> str:
     estilo = str(marca.get("estilo_visual", "")).lower()
     foto_signals = ["foto", "fotograf", "luz natural", "escena", "producto en primer plano",
                     "editorial", "stock", "primer plano"]
-    ilus_signals = ["ilustracion", "ilustración", "flat", "vector", "dibujo", "3d", "render",
-                    "acuarela", "grafico", "gráfico", "isometric"]
+    graf_signals = ["esquema", "diagrama", "icono", "iconos", "infografia", "infografía",
+                    "flecha", "grafico educativo", "educativo", "mapa mental"]
+    ilus_signals = ["ilustracion", "ilustración", "caricatura", "flat", "vector", "dibujo", "3d",
+                    "render", "acuarela", "isometric"]
     foto = sum(1 for s in foto_signals if s in estilo)
+    graf = sum(1 for s in graf_signals if s in estilo)
     ilus = sum(1 for s in ilus_signals if s in estilo)
-    return "escena-fotografica" if foto > ilus else "ilustracion"
+    if foto > graf and foto > ilus:
+        return "escena-fotografica"
+    if graf > foto and graf > ilus:
+        return "graficos"
+    return "ilustracion"
+
+
+MOLDES_VALIDOS = {"auto", "on", "off"}
+
+
+def molde_de(marca: Dict) -> str:
+    """Modo del molde-portada: 'auto' (default) | 'on' | 'off'."""
+    m = str(marca.get("molde", "auto")).strip().lower()
+    return m if m in MOLDES_VALIDOS else "auto"
+
+
+def molde_activo(marca: Dict, hay_refs: bool) -> bool:
+    """Decide si se usa la portada como molde de las demas slides.
+    auto: molde OFF si hay referencias del usuario (esas son el ancla comun), ON si no.
+    'on'/'off': manda el usuario."""
+    m = molde_de(marca)
+    if m == "on":
+        return True
+    if m == "off":
+        return False
+    return not hay_refs
+
+
+# --- Referencias visuales del usuario -> Kie File Upload API ---
+def listar_referencias() -> List[Path]:
+    """Archivos de imagen en config/referencias/ (ordenados). Vacio si no hay carpeta."""
+    if not REFERENCIAS_DIR.exists():
+        return []
+    return sorted(p for p in REFERENCIAS_DIR.iterdir()
+                  if p.is_file() and p.suffix.lower() in REF_EXTS)
+
+
+def _mime_de(path: Path) -> str:
+    return {".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+            ".png": "image/png", ".webp": "image/webp"}.get(path.suffix.lower(), "image/png")
+
+
+def subir_referencia(api_key: str, path: Path) -> Optional[str]:
+    """Sube UNA referencia a Kie (File Upload API) y regresa su fileUrl. None si falla (avisa)."""
+    try:
+        raw = path.read_bytes()
+        if len(raw) > MAX_REF_BYTES:
+            print(f"   ⚠️  La referencia {path.name} pesa más de 10MB; la salto.")
+            return None
+        data_uri = f"data:{_mime_de(path)};base64," + base64.b64encode(raw).decode("ascii")
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        payload = {"base64Data": data_uri, "uploadPath": "images/carrusel-refs", "fileName": path.name}
+        r = requests.post(KIE_FILE_UPLOAD, headers=headers, json=payload, timeout=60)
+        r.raise_for_status()
+        data = r.json()
+        d = data.get("data") or {}
+        url = d.get("fileUrl") or d.get("downloadUrl") or d.get("url")
+        if url:
+            return url
+        print(f"   ⚠️  No pude subir la referencia {path.name}: {data.get('msg', data)}")
+    except Exception as e:
+        print(f"   ⚠️  Error subiendo la referencia {path.name}: {e}")
+    return None
+
+
+def subir_referencias(api_key: str) -> List[str]:
+    """Sube TODAS las referencias de config/referencias/ a Kie y regresa sus URLs FRESCAS (expiran ~24h,
+    por eso se suben en cada corrida). Si una falla, avisa y CONTINUA; nunca bloquea la generacion."""
+    refs = listar_referencias()
+    if not refs:
+        return []
+    print(f"   🖼️  Subiendo {len(refs)} referencia(s) de estilo a Kie…")
+    urls = [u for u in (subir_referencia(api_key, p) for p in refs) if u]
+    if urls:
+        print(f"   ✅ {len(urls)} referencia(s) del usuario listas como guía visual.")
+    else:
+        print("   ⚠️  No se pudo subir ninguna referencia; sigo sin ellas.")
+    return urls
+
+
+def ensamblar_image_input(cover_url: Optional[str], ref_urls: List[str]) -> List[str]:
+    """Arma la lista image_input (max 8): la PORTADA siempre primera (si hay molde), luego las
+    referencias. Si portada+refs excede 8, recorta referencias."""
+    imgs = ([cover_url] if cover_url else []) + list(ref_urls or [])
+    return imgs[:MAX_IMAGE_INPUT]
 
 
 def parse_carrusel(bundle_path: Path) -> Optional[List[Dict]]:
@@ -186,7 +283,7 @@ def slide_role(num: int, total: int) -> str:
     return "valor"
 
 
-ELEMENTOS_SERIE_VALIDOS = {"numero", "badge", "barra"}
+ELEMENTOS_SERIE_VALIDOS = {"numero", "badge", "barra", "numero+flecha-footer"}
 
 
 def elemento_serie_de(marca: Dict) -> str:
@@ -201,8 +298,8 @@ def numero_serie_instr(num: int, total: int, elemento: str = "numero") -> str:
     """Instruccion del UNICO elemento de serie del carrusel. El texto es IDENTICO en todas las
     slides (solo cambia el valor n/total) para minimizar la variacion entre imagenes: misma
     posicion, mismo tamano, mismo tratamiento en toda la serie. El DEFAULT es el numero discreto
-    abajo-derecha; 'badge' y 'barra' son convenciones alternativas que el usuario puede elegir/modelar
-    de sus referencias (una sola por carrusel, siempre en la misma posicion)."""
+    abajo-derecha; 'badge', 'barra' y 'numero+flecha-footer' son convenciones alternativas que el
+    usuario puede elegir/modelar de sus referencias (una sola por carrusel, siempre en la misma posicion)."""
     if elemento == "badge":
         return (f'ELEMENTO DE SERIE: coloca el numero "{num}/{total}" dentro de una pastilla/badge pequena en la '
                 f'ESQUINA SUPERIOR DERECHA, con el MISMO estilo de pastilla, tipografia y color en toda la serie, '
@@ -211,6 +308,13 @@ def numero_serie_instr(num: int, total: int, elemento: str = "numero") -> str:
         return (f'ELEMENTO DE SERIE: en el FOOTER, una barra de progreso horizontal con el numero "{num}/{total}" '
                 f'al lado, con el MISMO estilo, grosor, tipografia y color en toda la serie, en identica posicion '
                 f'en cada slide (la barra refleja el avance {num} de {total}).')
+    if elemento == "numero+flecha-footer":
+        # Numero discreto + una flecha/"desliza" INTEGRADA en el footer (jamas flotante a media slide).
+        base_desliza = ('con una flecha "SWIPE ->" pequena y discreta INTEGRADA en el footer como parte del diseño '
+                        '(nunca flotando a media slide)' if num < total else 'sin flecha de deslizar (es la ultima)')
+        return (f'ELEMENTO DE SERIE: coloca el numero "{num}/{total}" en la ESQUINA INFERIOR DERECHA, pequeno y '
+                f'discreto, con la MISMA tipografia y color en toda la serie, en identica posicion en cada slide, '
+                f'{base_desliza}.')
     return (f'ELEMENTO DE SERIE: coloca el numero "{num}/{total}" en la ESQUINA INFERIOR DERECHA, '
             f'pequeno y discreto, con la MISMA tipografia y el MISMO color del texto en toda la serie, '
             f'en identica posicion y tamano en cada slide.')
@@ -226,6 +330,8 @@ def extras_prohibidos(elemento_serie: str) -> str:
         extras.remove("badges o pastillas")
     elif elemento_serie == "barra":
         extras.remove("barras de progreso")
+    elif elemento_serie == "numero+flecha-footer":
+        extras.remove("footer de swipe")
     return ("NO agregues por tu cuenta " + ", ".join(extras) +
             ": no son parte de la anatomia default (solo entran si el usuario los trae en sus referencias).")
 
@@ -243,8 +349,12 @@ def tratamiento_visual_instr(tratamiento: str) -> str:
         positivo = ("el producto/objeto vive DENTRO de una escena fotografica real: sobre una superficie o plato, "
                     "con luz natural y sombras suaves que lo anclan al mismo fondo de la slide, encuadre editorial. "
                     "El texto se acomoda sobre las zonas limpias de esa misma foto")
+    elif tratamiento == "graficos":
+        positivo = ("el visual es una composicion tipo ESQUEMA/DIAGRAMA educativo — iconos simples, flechas explicativas, "
+                    "etiquetas y anotaciones — dibujada con la misma paleta y trazo del diseño, sin recuadro propio, "
+                    "conectada al texto como parte de la misma composicion (estilo carrusel educativo)")
     else:
-        positivo = ("la ilustracion/grafico esta FUNDIDA con el diseño: comparte fondo, paleta y trazo con el resto de "
+        positivo = ("la ilustracion/caricatura esta FUNDIDA con el diseño: comparte fondo, paleta y trazo con el resto de "
                     "la slide, sin recuadro propio, integrada como parte de la composicion")
     return ("TRATAMIENTO DEL VISUAL (critico): " + positivo + ". El elemento visual va integrado, sin marcos ni bordes "
             "duros. PROHIBIDO: fotos recortadas dentro de un rectangulo o bloque, collage de foto pegada, y el layout "
@@ -252,22 +362,76 @@ def tratamiento_visual_instr(tratamiento: str) -> str:
 
 
 def anatomia_valor(densidad: str) -> str:
-    """Cuantos bullets lleva el cuerpo (opcion a) de una slide de valor, segun la densidad elegida.
-    La densidad regula CUANTA info por slide; la estetica la pone la marca, no esta funcion.
-    El presupuesto total (~30 palabras, max 5 elementos) manda sobre la densidad."""
+    """Como se resuelve el cuerpo de una slide de valor segun la densidad. La densidad regula CUANTA
+    info por slide; la estetica la pone la marca, no esta funcion."""
     if densidad == "aireada":
         return ("- Densidad AIREADA: 1-2 bullets muy cortos (o el visual protagonista con 0-1 bullet). "
                 "Mucho aire, una sola idea respirando.")
     if densidad == "completa":
-        return ("- Densidad COMPLETA: hasta 3 bullets cortos con marcador de punto (keywords en negrita). "
-                "Se ve llena y ordenada, siempre dentro del presupuesto de texto.")
+        return ("- Densidad COMPLETA (slide tipo MINI-GUIA): 3-5 bullets con marcador de punto (keywords en negrita), "
+                "opcional 1 anotacion corta. El TEXTO manda el lienzo, ordenado en jerarquia clara con AIRE entre bloques; "
+                "el visual es pequeño (de ambiente o esquina), NUNCA dominante. Los bullets SIEMPRE mandan.")
     return ("- Densidad MEDIA: 2-3 bullets cortos con marcador de punto (keywords en negrita). "
             "Equilibrio entre informacion y aire, siempre escaneable.")
 
 
-def build_prompt(slide: Dict, role: str, marca: Dict, total: int, ancla: bool = False) -> str:
+def presupuesto_texto(densidad: str) -> str:
+    """Presupuesto de texto POR DENSIDAD (v2.3): 'completa' es una mini-guia real (mas texto), no se
+    capa a ~30 palabras. Se mantiene el aviso anti-typos en todas."""
+    if densidad == "completa":
+        return ("- Presupuesto de texto (slide tipo MINI-GUIA): titulo <=8 palabras, subtitulo <=12, 3-5 bullets de "
+                "<=10 palabras + opcional 1 anotacion corta (~50-60 palabras en total). El TEXTO manda el lienzo, "
+                "en jerarquia clara con aire entre bloques. Aun asi: texto bien escrito, sin faltas, alto contraste; no lo amontones.")
+    if densidad == "aireada":
+        return ("- Presupuesto de texto ESTRICTO (AIREADA): titulo <=8 palabras, subtitulo <=10, 0-2 bullets <=7 palabras "
+                "(~30 palabras). Mucho aire. Menos texto = menos errores al renderizar.")
+    return ("- Presupuesto de texto ESTRICTO (MEDIA): titulo <=8 palabras, subtitulo <=10, 2-3 bullets <=7 palabras "
+            "(~30 palabras). Cero parrafos. Mas texto y mas elementos = mas deriva de posicion y mas errores al renderizar.")
+
+
+def anatomia_header(densidad: str) -> str:
+    """Encabezado del bloque de anatomia, segun densidad."""
+    if densidad == "completa":
+        return "ANATOMIA DE LA SERIE (slide tipo MINI-GUIA: el TEXTO manda el lienzo, jerarquia clara con aire entre bloques):"
+    return "ANATOMIA FIJA DE LA SERIE (maximo 5 elementos por slide, ~30 palabras en total — equilibrio, no espectaculo):"
+
+
+def bloque_referencias(ancla: bool, n_refs: int, sin_molde: bool) -> str:
+    """Texto que explica los ROLES de las imagenes adjuntas (image_input):
+    - ancla: la PRIMERA imagen es la portada-molde (solo tokens de estilo, no composicion/sujeto).
+    - n_refs: hay N referencias del usuario adjuntas (modelar su lenguaje visual, adaptado a la marca).
+    - sin_molde: el carrusel corre sin molde-portada -> refuerza la consistencia de serie por texto."""
+    partes = []
+    if ancla:
+        partes.append(
+            "REFERENCIA DE ESTILO: la PRIMERA imagen adjunta es la PORTADA de este mismo carrusel. Copia EXACTAMENTE sus\n"
+            "TOKENS DE ESTILO (paleta, tipografias, iluminacion, texturas, tratamiento grafico) para la consistencia de la\n"
+            "serie. Pero NO copies su COMPOSICION/layout, NI la proporcion texto/imagen, NI el sujeto: aunque la portada\n"
+            "tenga una foto grande y poco texto, ESTA slide sigue SU propia estructura (definida abajo) y su propio sujeto."
+        )
+    if n_refs > 0:
+        cual = "Las DEMAS imagenes adjuntas" if ancla else "Las imagenes adjuntas"
+        partes.append(
+            f"{cual} son REFERENCIAS que le gustan al usuario. Usalas como INSPIRACION de composicion y estructura,\n"
+            "MODELANDO sus PRINCIPIOS: tipo de composicion, densidad y jerarquia del texto, clase de elementos\n"
+            "(bullets con iconos, recuadros, anotaciones) y la energia/personalidad del diseño. JAMAS copies su\n"
+            "layout tal cual, sus textos o frases, sus ilustraciones/fotos, sus logos/marcas, ni sus colores o\n"
+            "tipografias: la PALETA y la TIPOGRAFIA del USUARIO mandan SIEMPRE. El resultado debe verse como una\n"
+            "pieza ORIGINAL de la marca del usuario que comparte principios de diseño con las referencias, NO como\n"
+            "una imitacion ni una plantilla re-coloreada de ellas."
+        )
+    if sin_molde:
+        partes.append(
+            "SERIE: esta slide es parte de una serie — manten EXACTAMENTE la misma paleta, tipografias y tratamiento en TODA la serie."
+        )
+    return ("\n".join(partes) + "\n\n") if partes else ""
+
+
+def build_prompt(slide: Dict, role: str, marca: Dict, total: int,
+                 ancla: bool = False, n_refs: int = 0, sin_molde: bool = False) -> str:
     """Construye el prompt de imagen para una slide.
-    total = numero de slides; ancla = True cuando se adjunta la portada como referencia de estilo."""
+    total = numero de slides; ancla = la portada-molde es la PRIMERA imagen adjunta;
+    n_refs = cuantas referencias del usuario van adjuntas; sin_molde = el carrusel corre sin molde."""
     colores = marca.get("colores", {})
     c_prim = colores.get("primario", "#111111")
     c_sec = colores.get("secundario", "#6F00FF")
@@ -281,11 +445,7 @@ def build_prompt(slide: Dict, role: str, marca: Dict, total: int, ancla: bool = 
     tratamiento = tratamiento_visual_de(marca)
     num = slide["number"]
 
-    ref = ""
-    if ancla:
-        ref = ("REFERENCIA DE ESTILO: la imagen adjunta es la PORTADA de este mismo carrusel. Copia EXACTAMENTE su\n"
-               "sistema visual (paleta, tipografia, tratamiento grafico, texturas y estilo de composicion) para que\n"
-               "TODAS las slides se vean como una serie coherente. NO copies su texto ni su contenido — solo el estilo.\n\n")
+    ref = bloque_referencias(ancla, n_refs, sin_molde)
 
     # Bloque de COMPOSICION comun a toda la serie. La composicion (jerarquia, densidad con orden,
     # footer integrado, elemento que guia el ojo) la define el sistema. La ESTETICA — incluida la
@@ -302,11 +462,11 @@ IDENTIDAD DE MARCA (respetala estrictamente):
   ni nombres internos de seccion; unicamente el mensaje real de la slide.
 - SIN marcas de agua, SIN logos ajenos, SIN rostros de personas reales.
 
-ANATOMIA FIJA DE LA SERIE (maximo 5 elementos por slide, ~30 palabras en total — equilibrio, no espectaculo):
+{anatomia_header(densidad)}
 - Jerarquia tipografica clara, con tamanos MUY distintos entre niveles (eyebrow > titulo > subtitulo > cuerpo).
 - EYEBROW (opcional): una etiqueta corta de 1-3 palabras arriba (ej. "PASO 2", "EL ERROR #1") que da contexto antes del titulo. Usala solo si aporta.
 - Densidad CON orden: elementos alineados a una reticula, con aire; nunca texto flotando en el vacio ni amontonado. Se ve llena y ordenada, sin saturar.
-- Presupuesto de texto ESTRICTO: titulo <=8 palabras, subtitulo <=10 palabras, bullets <=7 palabras. Cero parrafos. Mas texto y mas elementos = mas deriva de posicion y mas errores al renderizar.
+{presupuesto_texto(densidad)}
 - {extras_prohibidos(elemento_serie)}
 - {tratamiento_visual_instr(tratamiento)}
 - Footer integrado como parte del diseño, no elementos sueltos flotando.
@@ -335,8 +495,10 @@ REQUISITOS:
 
     if role == "valor":
         n_bullets = contar_bullets(body)
-        if n_bullets >= 2:
-            cuerpo = (f"  - CUERPO = BULLETS (esta slide trae {n_bullets} ideas): el texto manda. El visual es SECUNDARIO: "
+        # En densidad COMPLETA (mini-guia) los bullets SIEMPRE mandan; el visual es solo ambiente/apoyo pequeño.
+        if n_bullets >= 2 or densidad == "completa":
+            etiqueta = "MINI-GUIA (el TEXTO manda el lienzo)" if densidad == "completa" else f"BULLETS (esta slide trae {n_bullets} ideas)"
+            cuerpo = (f"  - CUERPO = {etiqueta}: el texto manda. El visual es SECUNDARIO: "
                       "pequeño y de apoyo, integrado en una esquina o como textura/ambiente del fondo, NUNCA un visual "
                       "protagonista a media pantalla que compita con los bullets.\n"
                       f"{anatomia_valor(densidad)}\n"
@@ -356,24 +518,27 @@ Contenido (respeta los bullets/pasos tal cual, texto legible):
 REQUISITOS:
 - Anatomia: (eyebrow opcional) + titulo + [subtitulo solo si aporta] + CUERPO + serie. Jerarquia clara de arriba a abajo.
 - Resalta UNA palabra clave del titulo con el color de acento {c_sec} (coloreada o subrayada), con la MISMA convencion en toda la serie.
+- VARIEDAD VISUAL: el elemento visual debe representar el TEMA DE ESTA slide ("{title}"), NO repetir el sujeto de la portada ni el de otras slides. Mismo estilo, sujeto distinto.
 - El CUERPO es UNA sola decision, JAMAS bullets Y visual protagonista compitiendo:
 {cuerpo}
 - Fondo limpio {c_fondo}, acentos en {c_sec}. Consistente con la portada.
 """
 
     # cierre
-    return base + f"""ULTIMA SLIDE (cierre e invitacion a actuar) — anatomia de cierre: CTA + @usuario.
+    return base + f"""ULTIMA SLIDE (cierre e invitacion a actuar) — anatomia de cierre: CTA en panel + @usuario.
 
 Mensaje de cierre (escribelo TAL CUAL, natural y cercano):
 "{body}"
 
 REQUISITOS:
 - Debe sentirse como una invitacion entre personas, no como un anuncio.
-- Incluye de forma clara y destacada el usuario: "{handle}", integrado en el footer del diseño.
-- COHERENCIA DE MARCA (critico): usa EXACTAMENTE la misma paleta del resto del carrusel.
-  El color acento protagonista es {c_sec}.
-  Puede ser un bloque grande de {c_sec} o el fondo {c_fondo} con {c_sec} de acento fuerte.
-- Un CTA claro y destacado (el llamado a la accion del mensaje), sin saturar.
+- PLANTILLA DEL CTA: el llamado a la accion (ej. "Comenta PALABRA") va DESTACADO DENTRO DE UN RECUADRO/PANEL
+  integrado a la estetica de la marca (un post-it, una pastilla, un marco punteado o un panel de color {c_sec},
+  el que pegue con {estilo}). La PALABRA para comentar lleva el MAYOR peso visual dentro del panel.
+- El panel es parte del diseño, integrado, NUNCA un elemento pegado encima ni un banner generico.
+- Debajo o dentro del panel, opcional 1 linea corta de refuerzo (rapido/facil/gratis) si el mensaje la trae.
+- Incluye de forma clara el usuario "{handle}", integrado en el footer del diseño.
+- COHERENCIA DE MARCA (critico): usa EXACTAMENTE la misma paleta del resto del carrusel; el acento protagonista es {c_sec}.
 """
 
 
@@ -467,6 +632,7 @@ def main():
         sys.exit(1)
 
     total = len(slides)
+    cover_num = 1 if any(s["number"] == 1 for s in slides) else slides[0]["number"]
     only = None
     if args.regenerar:
         try:
@@ -489,12 +655,32 @@ def main():
 
     print(f"Densidad de contenido: {densidad_de(marca)}")
 
+    # Referencias del usuario (config/referencias/): cuantas hay. En dry-run solo se cuentan; en la
+    # generacion real se suben frescas a Kie (sus URLs expiran ~24h).
+    n_refs_local = len(listar_referencias())
+    molde_on = molde_activo(marca, n_refs_local > 0)
+    print(f"Molde de portada: {'ON' if molde_on else 'OFF'} (modo {molde_de(marca)}"
+          f"{f', {n_refs_local} referencia(s) del usuario' if n_refs_local else ''})")
+
+    def _params_prompt(is_cover: bool, molde_on: bool, n_refs_disponibles: int):
+        """Devuelve (ancla, n_refs, sin_molde) para build_prompt segun molde e is_cover."""
+        if molde_on:
+            if is_cover:
+                return (False, min(n_refs_disponibles, MAX_IMAGE_INPUT), False)
+            return (True, min(n_refs_disponibles, MAX_IMAGE_INPUT - 1), False)
+        return (False, min(n_refs_disponibles, MAX_IMAGE_INPUT), True)
+
     if args.dry_run:
+        if n_refs_local:
+            print(f"Referencias en config/referencias/: {n_refs_local} (se subirían a Kie al generar).")
+        if not molde_on:
+            print("Sin molde: las slides se generarían TODAS en paralelo desde el inicio.")
         print(f"\n(dry-run) Prompts completos que se enviarian:\n")
         for s in slides:
             role = slide_role(s["number"], total)
+            ancla, n_refs, sin_molde = _params_prompt(s["number"] == cover_num, molde_on, n_refs_local)
             print(f"\n--- Slide {s['number']} ({role}) ---")
-            print(build_prompt(s, role, marca, total, ancla=(role != "gancho")))
+            print(build_prompt(s, role, marca, total, ancla=ancla, n_refs=n_refs, sin_molde=sin_molde))
         print("\n(dry-run) No se genero nada. Quita --dry-run para generar.")
         return
 
@@ -505,62 +691,87 @@ def main():
     manifest_path = slides_dir / "manifest.json"
     start = time.time()
     generated = []
-    cover_num = 1 if any(s["number"] == 1 for s in slides) else slides[0]["number"]
 
-    # --- FASE 1: la PORTADA primero. Sera el molde de estilo de las demas slides. ---
-    cover_url = None
-    regen_cover = (not only) or (cover_num in only)
-    if regen_cover:
-        print(f"\n{'='*60}\nFASE 1 — PORTADA (molde de estilo)\n{'='*60}\n")
-        cs = next(s for s in slides if s["number"] == cover_num)
-        tid = create_task(api_key, build_prompt(cs, slide_role(cover_num, total), marca, total))
-        cover_url = poll_task(api_key, tid, "[Portada]") if tid else None
-        if cover_url and download(cover_url, slides_dir / f"slide-{cover_num:02d}.png"):
-            print(f"   ✅ Portada -> slide-{cover_num:02d}.png")
-            generated.append({"id": cover_num, "role": "gancho", "title": cs["title"],
-                              "file": f"slide-{cover_num:02d}.png", "url": cover_url})
+    # Subir las referencias del usuario a Kie (frescas; expiran ~24h). Nunca bloquea la generacion.
+    ref_urls = subir_referencias(api_key) if n_refs_local else []
+
+    def procesar(slide_obj, role, image_input, ancla, n_refs, sin_molde, permitir_fallback):
+        """Genera UNA slide (crear tarea -> esperar -> opcional fallback sin molde -> descargar)."""
+        n = slide_obj["number"]
+        tid = create_task(api_key, build_prompt(slide_obj, role, marca, total,
+                                                ancla=ancla, n_refs=n_refs, sin_molde=sin_molde),
+                          image_input=(image_input or None))
+        url = poll_task(api_key, tid, f"[Slide {n}]") if tid else None
+        if not url and permitir_fallback:
+            # La URL de la portada-molde pudo expirar (URLs de Kie viven ~24h). Reintenta 1 vez SIN molde.
+            print(f"   ⚠️  Slide {n} falló con el molde. La portada de referencia ya expiró "
+                  f"(las URLs de Kie viven ~24h); genero sin molde…")
+            imgs2 = ref_urls[:MAX_IMAGE_INPUT]
+            tid2 = create_task(api_key, build_prompt(slide_obj, role, marca, total,
+                                                     ancla=False, n_refs=len(imgs2), sin_molde=True),
+                              image_input=(imgs2 or None))
+            url = poll_task(api_key, tid2, f"[Slide {n} sin molde]") if tid2 else None
+            if url:
+                print(f"   ℹ️  Generé la slide {n} sin molde. Si quieres consistencia total, "
+                      f"regenera también la slide 1 (--regenerar \"1\").")
+        if url and download(url, slides_dir / f"slide-{n:02d}.png"):
+            print(f"   ✅ Slide {n} -> slide-{n:02d}.png")
+            return {"id": n, "role": role, "title": slide_obj["title"],
+                    "file": f"slide-{n:02d}.png", "url": url}
+        print(f"   ❌ Slide {n} sin resultado")
+        return None
+
+    if molde_on:
+        # --- FLUJO CON MOLDE: la PORTADA primero (ancla de estilo), luego el resto en paralelo. ---
+        cover_url = None
+        regen_cover = (not only) or (cover_num in only)
+        if regen_cover:
+            print(f"\n{'='*60}\nFASE 1 — PORTADA (molde de estilo)\n{'='*60}\n")
+            cs = next(s for s in slides if s["number"] == cover_num)
+            cover_imgs = ensamblar_image_input(None, ref_urls)  # la portada usa solo referencias
+            res = procesar(cs, slide_role(cover_num, total), cover_imgs,
+                           ancla=False, n_refs=len(cover_imgs), sin_molde=False, permitir_fallback=False)
+            if res:
+                generated.append(res)
+                cover_url = res["url"]
+            else:
+                print("   ⚠️  No se pudo generar la portada; las demas iran sin molde.")
         else:
-            print("   ⚠️  No se pudo generar la portada; las demas iran sin molde.")
-            cover_url = None
+            # regenerando solo slides internas: recuperar la URL de la portada del manifest
+            if manifest_path.exists():
+                try:
+                    prev = json.loads(manifest_path.read_text(encoding="utf-8"))
+                    cover_url = next((l.get("url") for l in manifest_slides(prev) if l.get("id") == cover_num), None)
+                except Exception:
+                    cover_url = None
+
+        rest = [s for s in slides if s["number"] != cover_num and (not only or s["number"] in only)]
+        if rest:
+            usa_molde = bool(cover_url)
+            slide_imgs = ensamblar_image_input(cover_url, ref_urls)
+            n_refs_slide = len(slide_imgs) - (1 if usa_molde else 0)
+            print(f"\n{'='*60}\nFASE 2 — {len(rest)} slides en paralelo"
+                  f"{' (con molde de la portada)' if usa_molde else ' (sin molde)'}\n{'='*60}\n")
+            with ThreadPoolExecutor(max_workers=len(rest)) as ex:
+                futures = [ex.submit(procesar, s, slide_role(s["number"], total), slide_imgs,
+                                     usa_molde, n_refs_slide, not usa_molde, usa_molde) for s in rest]
+                for fut in as_completed(futures):
+                    res = fut.result()
+                    if res:
+                        generated.append(res)
     else:
-        # regenerando solo slides internas: recuperar la URL de la portada del manifest
-        if manifest_path.exists():
-            try:
-                prev = json.loads(manifest_path.read_text(encoding="utf-8"))
-                cover_url = next((l.get("url") for l in manifest_slides(prev) if l.get("id") == cover_num), None)
-            except Exception:
-                cover_url = None
-
-    # --- FASE 2: las demas slides en paralelo, usando la portada como referencia de estilo. ---
-    rest = [s for s in slides if s["number"] != cover_num and (not only or s["number"] in only)]
-    pending = {}
-    for s in rest:
-        n = s["number"]
-        role = slide_role(n, total)
-        tid = create_task(api_key, build_prompt(s, role, marca, total, ancla=bool(cover_url)),
-                          image_input=[cover_url] if cover_url else None)
-        if tid:
-            pending[n] = {"task_id": tid, "slide": s, "role": role}
-            print(f"   ✅ Slide {n} enviada ({tid[:12]}...)")
-        else:
-            print(f"   ❌ Slide {n} no se pudo enviar")
-
-    if pending:
-        print(f"\n{'='*60}\nFASE 2 — {len(pending)} slides en paralelo{' (con molde de la portada)' if cover_url else ''}\n{'='*60}\n")
-        with ThreadPoolExecutor(max_workers=len(pending)) as ex:
-            futures = {ex.submit(poll_task, api_key, info["task_id"], f"[Slide {n}]"): n
-                       for n, info in pending.items()}
+        # --- FLUJO SIN MOLDE: TODAS las slides en paralelo desde el inicio (bonus de velocidad). ---
+        objetivo = [s for s in slides if (not only or s["number"] in only)]
+        imgs = ensamblar_image_input(None, ref_urls)
+        print(f"\n{'='*60}\n{len(objetivo)} slides en paralelo (sin molde"
+              f"{', con referencias del usuario' if ref_urls else ''})\n{'='*60}\n")
+        with ThreadPoolExecutor(max_workers=len(objetivo)) as ex:
+            futures = [ex.submit(procesar, s, slide_role(s["number"], total), imgs,
+                                 False, len(imgs), True, False) for s in objetivo]
             for fut in as_completed(futures):
-                n = futures[fut]
-                url = fut.result()
-                if not url:
-                    print(f"   ❌ Slide {n} sin resultado")
-                    continue
-                if download(url, slides_dir / f"slide-{n:02d}.png"):
-                    print(f"   ✅ Slide {n} -> slide-{n:02d}.png")
-                    info = pending[n]
-                    generated.append({"id": n, "role": info["role"], "title": info["slide"]["title"],
-                                      "file": f"slide-{n:02d}.png", "url": url})
+                res = fut.result()
+                if res:
+                    generated.append(res)
 
     if not generated:
         print("\n❌ No se genero ninguna slide. Revisa tu llave y tus creditos de Kie AI.")

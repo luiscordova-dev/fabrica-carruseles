@@ -1,6 +1,8 @@
 # Llaves y marca personal — nunca subir
 .env
 config/marca.json
+# Referencias visuales del usuario (capturas que sube) — datos personales, nunca subir
+config/referencias/
 
 # Salidas generadas (carruseles del usuario)
 outputs/*

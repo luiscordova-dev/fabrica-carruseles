@@ -16,10 +16,12 @@ Estas evitan los errores que sí rompen la imagen. No las saltes:
 - **El título de cada slide (`### SLIDE N - <título>`) es el titular REAL** que se verá grande.
   **NUNCA** escribas ahí la palabra del rol ("Gancho", "Valor", "Recompensa", "CTA"): eso es el
   nombre interno del papel de la slide, no se muestra.
-- **Presupuesto de texto** (los modelos de imagen escriben bien POCO texto y mal MUCHO):
-  - Título: máximo ~6-8 palabras. Una idea.
-  - Cuerpo: máximo ~30 palabras, o 2-3 bullets de ~6-10 palabras.
-  - Si no cabe, esa slide trae dos ideas → pártela en dos.
+- **Presupuesto de texto por densidad** (los modelos de imagen escriben bien POCO texto y mal MUCHO;
+  la densidad de la marca decide cuánto entra por slide):
+  - **aireada / media**: título ≤8 palabras · subtítulo ≤10 · 0–3 bullets de ~6-10 palabras (~30 palabras).
+  - **completa (mini-guía real)**: título ≤8 · subtítulo ≤12 · **3–5 bullets de ≤10 palabras** + opcional
+    1 anotación corta (~50–60 palabras por slide). Aquí el TEXTO manda el lienzo, en jerarquía clara con aire.
+  - En TODAS: texto bien escrito, sin faltas, alto contraste; si aun así no cabe con orden, esa slide trae dos ideas → pártela.
 - **No repitas el título dentro del cuerpo** de la misma slide.
 - No metas medidas ni etiquetas técnicas en el texto (el tamaño lo controla el script).
 
@@ -54,6 +56,17 @@ verdadero** (casi polémico, nunca clickbait falso). Ganchos genéricos ("Cómo 
 - **Prueba variada:** alterna **historia** (un caso → confianza), **dato** (una cifra → credibilidad)
   y **explicación** (causa-efecto → comprensión).
 
+### 2b. Storytelling: cómo se cuenta para que enganche
+Cuando una idea se presta a narrarse, sigue el patrón **historia → lección → aplicación**:
+1. **Historia** (1-2 slides): una situación concreta y real — un antes, un problema, un momento. Lo
+   específico crea identificación ("me pasó igual").
+2. **Lección**: qué se aprendió de esa historia, la idea que la explica (el "por qué funciona").
+3. **Aplicación**: qué hace el lector con eso HOY — el paso concreto. Sin esto, la historia es solo entretenimiento.
+
+Elige la prueba según lo que necesites en cada slide: **historia** para bajar la guardia y generar
+confianza, **dato** para dar credibilidad, **explicación** (causa→efecto) para que se entienda. Alterna;
+no todo puede ser historia ni todo dato. Y siempre real: una historia inventada quema la confianza que buscas.
+
 ### 3. Última slide: recompensa + UN solo CTA
 Cumple la promesa del gancho y pide **una sola acción** (nunca tres llamados que compiten):
 - **Palabra a comentar** (entrega un recurso): *"Comenta AGENTE y te mando la guía."* Palabra corta
@@ -66,7 +79,9 @@ con los "sabores" que la gente quiere: **rápido, fácil, sin riesgo, barato** (
 
 ### Reglas de oro
 - **Honestidad total.** Cero resultados, cifras o casos inventados. Un dato real modesto vende más
-  que uno inflado — y no quema la confianza, que es el activo que construyes.
+  que uno inflado — y no quema la confianza, que es el activo que construyes. **Tampoco inventes detalles
+  del recurso del CTA** (formato, nombre, qué incluye): usa lo que el usuario definió; si falta un dato,
+  pregúntaselo antes de escribir el copy.
 - **Una idea por slide.**
 - **Lenguaje simple**, con las **palabras exactas de la audiencia** (no las tuyas). Se lee, no se descifra.
 - El diseño bonito ayuda solo si mejora la comprensión; nunca salva una idea vacía.
@@ -94,7 +109,10 @@ la aplica automáticamente al generar; aquí queda para que la entiendas y escri
 5. **SERIE**: el número **`n/total`** discreto, en la **esquina inferior derecha**, con instrucción idéntica en todas las slides. **@usuario solo en portada y cierre.**
 
 **Portada (slide 1):** gancho grande + subtítulo + un elemento protagonista.
-**Cierre (última):** CTA + @usuario integrado en el footer.
+**Cierre (última):** el CTA ("Comenta PALABRA") va **destacado dentro de un recuadro/panel** integrado a la
+estética de la marca (un post-it, una pastilla, un marco punteado o un panel de color) — con la **palabra
+clave en el mayor peso visual** — + **@usuario** integrado en el footer + opcional 1 línea corta de refuerzo
+(rápido/fácil/gratis). El panel es parte del diseño, **nunca un elemento pegado encima** ni un banner genérico.
 
 **No hay flecha de "deslizar →"**: se quitó porque salía inconsistente y ensuciaba la composición.
 
@@ -104,8 +122,10 @@ bloque. Es un atributo de la estética del usuario (`tratamiento_visual`):
 - **`escena-fotografica`** — el producto/objeto está en una **escena real**: sobre una superficie o
   plato, con **luz natural y sombras suaves** que lo anclan al **mismo fondo** de la slide, encuadre
   editorial. El texto se acomoda sobre las zonas limpias de esa foto.
-- **`ilustracion`** — el dibujo/gráfico está **fundido con el diseño**: comparte fondo, paleta y trazo,
+- **`ilustracion`** — el dibujo/caricatura está **fundido con el diseño**: comparte fondo, paleta y trazo,
   sin recuadro propio.
+- **`graficos`** — composición tipo **esquema/diagrama educativo**: iconos simples, flechas explicativas,
+  etiquetas y anotaciones, con la misma paleta y trazo del diseño, conectados al texto (estilo carrusel educativo).
 
 **Prohibido** (se veta explícito en el prompt): fotos recortadas dentro de un rectángulo/bloque, collage
 de foto pegada, y el layout **"columna de texto a un lado + bloque de imagen al otro" tipo diapositiva

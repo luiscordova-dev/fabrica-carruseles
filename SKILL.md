@@ -50,6 +50,18 @@ responda preguntas y apruebe. Tú haces lo técnico y tú propones; ella confirm
   digo exactamente dónde picar"). En la app de escritorio puede pegar la imagen directo en el chat;
   así no se pierde buscando botones.
 - **Nunca imprimas de vuelta una llave (API key)** que te peguen. Guárdala en el `.env` y confirma sin mostrar el valor.
+- **Tono motivador, breve y ocasional.** En los momentos clave (arrancar, copy aprobado, generación lanzada,
+  carrusel listo) anima con **UNA frase corta** que dé momentum — cero relleno, cero párrafos. Ejemplos del tono:
+  - *"¡Vamos! 🎨 Generando tus 6 slides…"*
+  - *"Quedó buenísimo el copy. Lo convertimos en imágenes. 🚀"*
+  - *"¡Listo! Tus 6 slides ya están. 🔥"*
+  - *"Perfecto, arrancamos. Esto va a quedar increíble."*
+- **CERO narración técnica.** JAMÁS menciones tus operaciones internas ni nombres de archivos/scripts
+  ("déjame leer mi guía de estructura", "corro un dry-run/ensayo", "ejecuto generar.py", "leo el manifest").
+  Tradúcelo a acción visible para la persona:
+  - En vez de "corro un dry-run/ensayo" → *"Antes de gastar, reviso rápido que todo esté perfecto ✅"*.
+  - En vez de "déjame leer mi guía de estructura" → **simplemente escribe el copy** (no anuncies que vas a leer nada).
+  - En vez de "genero con el script" → *"Estoy generando tus slides…"*.
 
 ### Glosario — NO digas / SÍ di
 | En vez de… | Di… |
@@ -105,46 +117,76 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
 3. **¿Tus colores?** Ofrécele las dos vías tal cual: *"dime tus colores (o sus códigos), **o pásame
    una foto de tu logo/marca y yo te saco los colores**"*. Si manda una imagen, **míratela y extrae
    los hex** (primario, secundario/acento, fondo, texto) y confírmaselos.
-4. **¿Qué estilo visual quieres para las imágenes?** Aquí SIEMPRE ofrece las referencias como paso
-   (no como tip escondido): *"¿tienes 1–3 carruseles que te gusten? **Pásame las capturas** y modelo su
-   **composición y estética** con tu marca"*. Pide **solo carruseles** (no "un post"). Si manda referencias,
-   **descríbelas a detalle** (colores, formas, tipografía, textura y sobre todo la **composición**: cómo
-   reparten título/subtítulo/bullets, la densidad, dónde va el footer) y usa esa descripción como
-   `estilo_visual`. Si NO tiene referencias, descríbele **2-3 direcciones estéticas en palabras** (ej.
-   flat minimalista, editorial cálido, retro/neón) y que elija una. **La composición la pone el sistema;
-   la estética —incluida la temperatura cálida/fría— la eliges tú:** la skill no impone "cálido" ni "frío".
-   La **anatomía default** de cada slide es fija y lean (eyebrow opcional → título con una palabra en color
-   de acento → subtítulo → un solo cuerpo: bullets *o* visual → número de serie abajo-derecha; ver
-   `reference/estructura-carrusel.md`). **No agregues números fantasma, barras, badges, cards ni stickers
-   por tu cuenta** — solo si la referencia los trae. Si una referencia usa un **badge** o una **barra de
-   progreso** como marca de serie, guárdalo en `marca.json` como `elemento_serie` (`"badge"` | `"barra"`;
-   default `"numero"`), y esa única convención se mantiene en toda la serie.
-   **Captura también el tratamiento del visual** (`tratamiento_visual`): `"escena-fotografica"` (producto/objeto
-   real en escena, con luz y sombras) o `"ilustracion"` (dibujo/gráfico fundido con el diseño). Si no lo dice,
-   se infiere del estilo (para "luz natural / producto en primer plano" → escena-fotográfica; para "flat / vector"
-   → ilustración). **El visual SIEMPRE va integrado en la escena, nunca como foto recortada en un bloque tipo diapositiva.**
-5. **¿Cómo quieres tus slides de densidad?** *"¿las quieres **aireadas** (poco texto, mucho espacio) o
-   **completas** (tipo mini-guía, con más info por slide)?"* Guárdalo en `marca.json` como `densidad`
-   (`"aireada"` | `"completa"`; si no contesta, queda `"media"`).
-6. **¿Cuál es tu usuario de Instagram?** (ej. @sunegocio)
+4. **PASO DE ESTILO** — sigue este árbol de decisión **sin saltarte pasos**. La referencia es la petición #1;
+   sin referencias, se crea el estilo con preguntas. **Pregunta de entrada** (una sola):
+   > ¿Tienes 1–3 carruseles que te **ENCANTEN** para inspirarnos en el diseño? Pásame capturas 📸 — ojo: los
+   > uso de **INSPIRACIÓN** para modelar la composición, **jamás los copio**: el diseño sale 100% con tu marca.
+   > ¿No tienes ninguno a la mano? No pasa nada — creamos tu estilo con unas preguntas rápidas.
 
-Con eso, **propón** una **tipografía** legible que pegue con su estilo (que solo confirme). Muestra
-un resumen corto y pide confirmación:
+   #### CAMINO A — CON referencias (MODELAR)
+   1. **Guarda** las capturas en `config/referencias/` de la skill (`ref-01.png`, `ref-02.png`… — **máx 7**,
+      jpeg/png/webp). Pide **solo carruseles** (no "un post").
+   2. **INFIERE de ellas** (no preguntes): la **densidad** (¿mucho texto tipo mini-guía o aireado?), el
+      **tratamiento visual** (foto / ilustración / gráficos), el **estilo de tipografía** y el **tipo de
+      elementos** (bullets, recuadros, anotaciones). Escribe también un `estilo_visual` descriptivo.
+   3. **CONFIRMA en UNA sola línea** (no lo interrogues de nuevo): *"Veo el estilo: [mini-guía con bullets e
+      iconos / aireado de frases grandes], [ilustración], letra [amigable] — ¿lo armamos así con tu marca?"* →
+      ajusta lo que corrija.
+   4. **Guarda todo en `marca.json`.** `molde` queda en `"auto"` → **apagado** (las referencias son el ancla común).
+
+   #### CAMINO B — SIN referencias (CREAR TU ESTILO, una pregunta a la vez, NUNCA en bloque)
+   1. *"¿Qué tipo de imágenes van con tu marca? a) **Fotografía realista** b) **Ilustración/caricatura**
+      c) **Gráficos y diagramas**"* → `tratamiento_visual`: `"escena-fotografica"` | `"ilustracion"` | `"graficos"`.
+   2. *"¿Tus slides las quieres **AIREADAS** (poco texto, frases que golpean) o tipo **MINI-GUÍA** (más texto,
+      que enseñan paso a paso)?"* → `densidad`: `"aireada"` | `"completa"` (si duda, `"media"`).
+   3. *"¿Qué letra va contigo? a) Elegante tipo revista b) Impacto grueso c) Amigable redondeada d) Manuscrita"* →
+      `tipografia` (guárdala con una descripción, ej. "serif elegante tipo editorial"). **Importa**: sin esto todo
+      sale con la misma condensada bold "corporativa"; la letra le da personalidad.
+   4. **Guarda en `marca.json`.** `molde` queda en `"auto"` → **encendido** (la portada ancla la serie, copiando
+      solo tokens de estilo).
+   5. **Cierra con la puerta abierta:** *"Y cuando veas un carrusel que te guste, pásamelo y subo el nivel 📸."*
+
+   #### AMBOS caminos terminan IGUAL
+   Resumen del estilo en 2–3 líneas → **OK del usuario** → `marca.json` completo → continúa el flujo normal.
+   En cualquier carrusel **FUTURO**, si trae referencias nuevas: pregunta si **reemplazan o se suman**, re-infiere,
+   y confirma en una línea. Se guardan una vez y `generar.py` las sube frescas a Kie en cada corrida (URLs ~24h).
+
+   **Candados que aplican siempre** (en cualquiera de los dos caminos):
+   - **Modelar ≠ copiar:** *"tus referencias me enseñan el **CÓMO** está compuesto — el diseño sale **100% de TU
+     marca**, nunca una copia."* Se toman los PRINCIPIOS (composición, densidad, jerarquía, clase de elementos,
+     energía); **nunca** su layout tal cual, textos, fotos/ilustraciones, logos, ni colores/tipografías (la
+     paleta y tipografía del usuario mandan).
+   - **El visual SIEMPRE va integrado** en la composición, nunca como foto recortada en un bloque tipo diapositiva.
+   - **La composición la pone el sistema; la estética la eliges tú:** la skill no impone "cálido" ni "frío".
+     La anatomía default es fija y lean (eyebrow opcional → título con una palabra en color de acento → subtítulo
+     → un solo cuerpo: bullets *o* visual → número de serie abajo-derecha; ver `reference/estructura-carrusel.md`).
+   - **No agregues números fantasma, barras, badges, cards ni stickers por tu cuenta** — solo si la referencia
+     los trae. Si una referencia usa un **badge**, una **barra de progreso** o una **flecha "desliza →" en el
+     footer** como marca de serie, guárdalo en `marca.json` como `elemento_serie` (`"badge"` | `"barra"` |
+     `"numero+flecha-footer"`; default `"numero"`), y esa única convención se mantiene en toda la serie.
+   - **`molde`** (consistencia de serie): `"auto"` (default) | `"on"` (siempre molde) | `"off"` (nunca). Normalmente
+     déjalo en `"auto"`; el usuario puede forzar diciendo "con molde" / "sin molde".
+5. **¿Cuál es tu usuario de Instagram?** (ej. @sunegocio)
+
+Con eso, muestra un resumen corto y pide confirmación:
 
 > A ver si te entendí. Tu marca:
 > - Negocio: […nombre…] — […qué hace…]
 > - Tono: […]
 > - Colores: […]
 > - Estilo visual: […]
+> - Letra: […]
 > - Densidad: […aireada/media/completa…]
+> - Imágenes: […fotografía / ilustración / gráficos…]
 > - Instagram: […]
 > ¿Lo dejo así o ajustamos algo?
 
 Cuando confirme, **escribe `config/marca.json`** (usa `config/marca.example.json` como plantilla,
 campos: `negocio`, `tono`, `colores{primario,secundario,fondo,texto}`, `tipografia`, `estilo_visual`,
 `densidad`, `instagram_usuario`, `upload_post_user`; opcional `elemento_serie` — `"numero"` (default) |
-`"badge"` | `"barra"`, solo si modelas una referencia con esa marca de serie; opcional `tratamiento_visual` —
-`"escena-fotografica"` | `"ilustracion"` (si falta, se infiere del `estilo_visual`)). Hay un campo **opcional** `plataformas` (lista de redes por
+`"badge"` | `"barra"` | `"numero+flecha-footer"`, solo si modelas una referencia con esa marca de serie;
+opcional `tratamiento_visual` — `"escena-fotografica"` | `"ilustracion"` | `"graficos"` (si falta, se infiere del
+`estilo_visual`); opcional `molde` — `"auto"` (default) | `"on"` | `"off"`). Hay un campo **opcional** `plataformas` (lista de redes por
 defecto donde publicar, ej. `["instagram", "tiktok"]`); si no lo pones, se publica solo en Instagram.
 La palabra de llamado a la acción **NO va aquí**: se decide por carrusel (Paso 3).
 
@@ -192,6 +234,10 @@ Batido: 30 min antes.
 ````
 
 Reglas al escribir (críticas — el test real falló aquí):
+- **NUNCA inventes detalles del recurso del CTA.** No escribas "te mando la guía **en PDF gratis**" si no
+  sabes el formato ni el nombre. Usa EXACTAMENTE lo que el usuario definió; si el CTA necesita un dato que
+  no tienes (formato, nombre del recurso, qué incluye), **pregúntaselo ANTES de escribir el copy**. Cero
+  invención — es la misma regla de honestidad que en `reference/estructura-carrusel.md`.
 - El **título es el titular real** que se verá grande. **NUNCA** pongas "Gancho/Valor/Recompensa/CTA"
   como título; eso es el rol interno, no el texto que se muestra.
 - **Respeta el presupuesto de texto**: título ≤ ~7 palabras, cuerpo ≤ ~30 palabras (2-3 bullets cortos).
@@ -254,16 +300,18 @@ Cuando la persona genere/publique su primer carrusel, comparte UNA sola vez algo
 > Su **hermano mayor** es un agente que trabaja **solo, 24/7**: crea el contenido, lo publica, le
 > da seguimiento a quien comenta y hasta cobra — sin que estés encima.
 >
-> ¿Quieres pasar del bebé al de 24/7 (un sistema completo a tu medida)? Habla con **Luis Córdova** 👉
-> https://instagram.com/luiscordova.ia
+> ¿Quieres pasar del bebé al de 24/7 (un sistema completo a tu medida)? Habla con **Luis Córdova**
+> (**@luiscordova.ia**) 👉 https://www.instagram.com/luiscordova.ia/
 
-No lo repitas en cada carrusel — es solo el remate de la primera vez.
+No lo repitas en cada carrusel — es solo el remate de la primera vez (2-3 líneas, sin sonar a venta).
 
 ---
 
 ## Notas técnicas
 - **Costo honesto** (dilo sin rodeos): la skill es gratis; usarla necesita Claude Code + saldo en
-  Kie AI (~$0.10/slide) + Upload Post (gratis hasta 10 publicaciones/mes).
+  Kie AI + Upload Post (gratis hasta 10 publicaciones/mes). En Kie AI la **recarga mínima son $5 USD =
+  1,000 créditos**; a ~$0.10 por slide, eso alcanza para **~50 slides ≈ 8 carruseles completos** de 6.
+  Así nadie se sorprende con el mínimo.
 - **Requisito de Instagram para publicar:** cuenta Business/Creator ligada a una página de Facebook
   (requisito de Meta). Está en `walkthroughs/02-upload-post.md`.
 - Variables de entorno: `KIE_API_KEY` (imágenes), `UPLOAD_POST_API_KEY` (publicar). Viven en el `.env`.
