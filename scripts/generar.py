@@ -73,22 +73,44 @@ def get_api_key() -> str:
 
 
 def load_marca() -> Dict:
-    """Carga la marca del usuario. Si no existe, usa valores neutros para no romper."""
+    """Carga la marca del usuario desde config/marca.json. La ruta es SIEMPRE relativa a la
+    ubicacion del script (SKILL_ROOT = carpeta de la skill), nunca al directorio de trabajo, asi
+    que da igual desde donde se corra generar.py.
+
+    Si marca.json NO existe, ABORTA con un mensaje claro en español y NO inventa valores neutros.
+    Generar con un dict de ejemplo fue justo la causa del bug: sacaba '@tu_usuario' literal,
+    densidad 'media' y tipografia generica todos a la vez, pisando la marca real del usuario."""
     if not MARCA_FILE.exists():
-        print(f"⚠️  No encontre {MARCA_FILE}. Usando valores por defecto.")
-        print("   Corre el onboarding de la skill para configurar tu marca.")
-        return {
-            "negocio": "un negocio",
-            "tono": "claro y directo",
-            "colores": {"primario": "#111111", "secundario": "#6F00FF",
-                        "fondo": "#FFFFFF", "texto": "#111111"},
-            "tipografia": "sans-serif bold, limpia y moderna",
-            "estilo_visual": "ilustracion flat minimalista, alto contraste, formas geometricas simples, sin texturas de acuarela",
-            "instagram_usuario": "@tu_usuario",
-            "densidad": "media",
-        }
+        print(f"❌ No encontré tu marca en {MARCA_FILE}.")
+        print("   Antes de generar hay que configurarla: corre el onboarding de la skill")
+        print("   (te hace unas preguntas rápidas y crea tu marca.json).")
+        print("   Sin marca NO genero, para no sacar slides con datos de ejemplo")
+        print("   (@tu_usuario, densidad y tipografía genéricas en vez de las tuyas).")
+        sys.exit(1)
     with open(MARCA_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+# --- Blindaje contra placeholders del onboarding ---
+# El onboarding puede dejar campos con su valor de ejemplo/placeholder si el usuario no los
+# llenó. JAMÁS deben llegar al modelo (en la prueba real "@tu_usuario" se renderizó literal en
+# 5 de 6 slides). El nucleo se compara normalizado (minusculas, sin @, sin espacios).
+PLACEHOLDERS_USUARIO = {"tu_usuario", "usuario", "tuusuario", ""}
+
+
+def instagram_usuario_real(marca: Dict) -> Optional[str]:
+    """Devuelve el @ REAL del usuario, o None si el campo esta vacio o trae un placeholder.
+    Placeholders que se tratan como SIN usuario (comparando el nucleo normalizado):
+    '@tu_usuario', 'tu_usuario', '@usuario', 'usuario', '@tuusuario', '' y None.
+    Cuando devuelve None, los prompts OMITEN por completo cualquier mencion de @/usuario."""
+    raw = marca.get("instagram_usuario")
+    if raw is None:
+        return None
+    limpio = str(raw).strip()
+    nucleo = limpio.lstrip("@").strip().lower()
+    if nucleo in PLACEHOLDERS_USUARIO:
+        return None
+    return limpio if limpio.startswith("@") else "@" + limpio
 
 
 # --- Retrocompat de artefactos ---
@@ -294,12 +316,22 @@ def elemento_serie_de(marca: Dict) -> str:
     return e if e in ELEMENTOS_SERIE_VALIDOS else "numero"
 
 
-def numero_serie_instr(num: int, total: int, elemento: str = "numero") -> str:
+def numero_serie_instr(num: int, total: int, elemento: str = "numero", hay_refs: bool = False) -> str:
     """Instruccion del UNICO elemento de serie del carrusel. El texto es IDENTICO en todas las
     slides (solo cambia el valor n/total) para minimizar la variacion entre imagenes: misma
-    posicion, mismo tamano, mismo tratamiento en toda la serie. El DEFAULT es el numero discreto
-    abajo-derecha; 'badge', 'barra' y 'numero+flecha-footer' son convenciones alternativas que el
-    usuario puede elegir/modelar de sus referencias (una sola por carrusel, siempre en la misma posicion)."""
+    posicion, mismo tamano, mismo tratamiento en toda la serie.
+
+    JERARQUIA referencias > defaults: si hay REFERENCIAS del usuario adjuntas (hay_refs), el numero
+    'abajo-derecha clavado' NO se impone — se REPLICA la convencion que muestran las referencias
+    (badge arriba, numero abajo, barra, dots, la que sea), manteniendo UNA sola convencion identica
+    en toda la serie. El default (numero discreto abajo-derecha) aplica SOLO SIN referencias;
+    'badge', 'barra' y 'numero+flecha-footer' son convenciones que el usuario modela sin refs."""
+    if hay_refs:
+        return (f'ELEMENTO DE SERIE: SIGUE la MISMA convencion de numeracion/progreso que usan las imagenes de '
+                f'REFERENCIA adjuntas (su misma forma y posicion: badge arriba, numero abajo, barra o dots — la que '
+                f'ellas usen), con el valor "{num}/{total}". No impongas la esquina inferior derecha si las referencias '
+                f'usan otra; pero mantenla IDENTICA en forma, posicion, tipografia y color en TODAS las slides de la '
+                f'serie (UNA sola convencion, no la cambies entre slides). Refleja el avance {num} de {total}.')
     if elemento == "badge":
         return (f'ELEMENTO DE SERIE: coloca el numero "{num}/{total}" dentro de una pastilla/badge pequena en la '
                 f'ESQUINA SUPERIOR DERECHA, con el MISMO estilo de pastilla, tipografia y color en toda la serie, '
@@ -320,10 +352,18 @@ def numero_serie_instr(num: int, total: int, elemento: str = "numero") -> str:
             f'en identica posicion y tamano en cada slide.')
 
 
-def extras_prohibidos(elemento_serie: str) -> str:
+def extras_prohibidos(elemento_serie: str, hay_refs: bool = False) -> str:
     """Prohibe los recursos que NO son parte de la anatomia default (mas elementos = mas deriva de
     posicion y mas typos). Solo entran cuando el usuario los trae en sus referencias; la skill nunca
-    los agrega sola. Se omite de la lista el que sea la convencion de serie elegida, para no contradecirla."""
+    los agrega sola. Se omite de la lista el que sea la convencion de serie elegida, para no contradecirla.
+
+    JERARQUIA referencias > defaults: CON referencias adjuntas (hay_refs) esta lista fija NO manda —
+    el usuario ya trajo su lenguaje visual; se sigue lo que muestran las referencias y solo se veta
+    agregar cosas que ELLAS no usan."""
+    if hay_refs:
+        return ("Usa SOLO los recursos de serie/decoracion que aparecen en las imagenes de REFERENCIA "
+                "(numero, badge, barra, dots, etc.): NO inventes elementos que las referencias no usen. "
+                "Sea cual sea, manten UNA sola convencion identica en toda la serie.")
     extras = ["numeros fantasma", "barras de progreso", "badges o pastillas",
               "tarjetas comparativas", "stickers o washi tape", "footer de swipe"]
     if elemento_serie == "badge":
@@ -339,6 +379,19 @@ def extras_prohibidos(elemento_serie: str) -> str:
 def contar_bullets(body: str) -> int:
     """Cuenta las lineas no vacias del cuerpo = cuantos bullets/ideas trae la slide."""
     return len([ln for ln in (body or "").splitlines() if ln.strip()])
+
+
+def slides_copy_corto(slides: List[Dict], total: int, densidad: str) -> List[int]:
+    """Densidad 'completa' = mini-guia real: cada slide de VALOR deberia traer 3-5 bullets. Devuelve
+    los numeros de las slides de valor cuyo copy viene CORTO (<3 bullets) para avisar en el dry-run
+    (el copy se escribe segun la densidad; si quedo corto para 'completa', hay que reescribirlo)."""
+    if densidad != "completa":
+        return []
+    cortas = []
+    for s in slides:
+        if slide_role(s["number"], total) == "valor" and contar_bullets(s.get("content", "")) < 3:
+            cortas.append(s["number"])
+    return sorted(cortas)
 
 
 def tratamiento_visual_instr(tratamiento: str) -> str:
@@ -396,11 +449,17 @@ def anatomia_header(densidad: str) -> str:
     return "ANATOMIA FIJA DE LA SERIE (maximo 5 elementos por slide, ~30 palabras en total — equilibrio, no espectaculo):"
 
 
-def bloque_referencias(ancla: bool, n_refs: int, sin_molde: bool) -> str:
+# Rol interno -> como se nombra al modelar por rol contra la referencia.
+ROL_A_TEXTO = {"gancho": "la PORTADA", "valor": "las slides de VALOR (las de en medio)",
+               "recompensa": "el CIERRE / CTA"}
+
+
+def bloque_referencias(ancla: bool, n_refs: int, sin_molde: bool, role: str = "valor") -> str:
     """Texto que explica los ROLES de las imagenes adjuntas (image_input):
     - ancla: la PRIMERA imagen es la portada-molde (solo tokens de estilo, no composicion/sujeto).
     - n_refs: hay N referencias del usuario adjuntas (modelar su lenguaje visual, adaptado a la marca).
-    - sin_molde: el carrusel corre sin molde-portada -> refuerza la consistencia de serie por texto."""
+    - sin_molde: el carrusel corre sin molde-portada -> refuerza la consistencia de serie por texto.
+    - role: el rol de ESTA slide (gancho/valor/recompensa) para modelar ROL->ROL contra la referencia."""
     partes = []
     if ancla:
         partes.append(
@@ -411,14 +470,19 @@ def bloque_referencias(ancla: bool, n_refs: int, sin_molde: bool) -> str:
         )
     if n_refs > 0:
         cual = "Las DEMAS imagenes adjuntas" if ancla else "Las imagenes adjuntas"
+        rol_txt = ROL_A_TEXTO.get(role, "las slides de VALOR (las de en medio)")
         partes.append(
-            f"{cual} son REFERENCIAS que le gustan al usuario. Usalas como INSPIRACION de composicion y estructura,\n"
-            "MODELANDO sus PRINCIPIOS: tipo de composicion, densidad y jerarquia del texto, clase de elementos\n"
-            "(bullets con iconos, recuadros, anotaciones) y la energia/personalidad del diseño. JAMAS copies su\n"
-            "layout tal cual, sus textos o frases, sus ilustraciones/fotos, sus logos/marcas, ni sus colores o\n"
-            "tipografias: la PALETA y la TIPOGRAFIA del USUARIO mandan SIEMPRE. El resultado debe verse como una\n"
-            "pieza ORIGINAL de la marca del usuario que comparte principios de diseño con las referencias, NO como\n"
-            "una imitacion ni una plantilla re-coloreada de ellas."
+            f"{cual} son REFERENCIAS que le gustan al usuario y forman (idealmente) un carrusel COMPLETO. Usalas como\n"
+            "INSPIRACION de composicion y estructura, MODELANDO sus PRINCIPIOS: tipo de composicion, densidad y jerarquia\n"
+            "del texto, clase de elementos (bullets con iconos, recuadros, anotaciones), la convencion de numeracion/serie\n"
+            "y footer, la tipografia y la energia/personalidad del diseño.\n"
+            f"MODELA POR ROL: la PORTADA de la referencia inspira nuestra portada, sus slides de EN MEDIO inspiran las de\n"
+            f"valor, y su ULTIMA inspira el cierre. ESTA slide es {rol_txt}: fijate sobre todo en las slides de ESE rol en\n"
+            "la referencia.\n"
+            "JAMAS copies su layout tal cual, sus textos o frases, sus ilustraciones/fotos, sus logos/marcas, ni sus\n"
+            "COLORES: la PALETA/COLORES del USUARIO mandan SIEMPRE (la tipografia si se modela de las refs). El resultado\n"
+            "debe verse como una pieza ORIGINAL de la marca del usuario que comparte principios de diseño con las\n"
+            "referencias, NO como una imitacion ni una plantilla re-coloreada de ellas."
         )
     if sin_molde:
         partes.append(
@@ -439,13 +503,17 @@ def build_prompt(slide: Dict, role: str, marca: Dict, total: int,
     c_texto = colores.get("texto", "#111111")
     tipografia = marca.get("tipografia", "sans-serif bold, limpia y moderna")
     estilo = marca.get("estilo_visual", "ilustracion flat minimalista, alto contraste")
-    handle = marca.get("instagram_usuario", "@tu_usuario")
+    # @ REAL del usuario o None si esta vacio/placeholder. Si es None, NINGUN prompt menciona @/usuario.
+    handle = instagram_usuario_real(marca)
     densidad = densidad_de(marca)
     elemento_serie = elemento_serie_de(marca)
     tratamiento = tratamiento_visual_de(marca)
     num = slide["number"]
+    # JERARQUIA referencias > defaults: si hay referencias del usuario adjuntas, la serie/decoracion y
+    # la tipografia siguen el patron de las referencias; los defaults 'clavados' aplican SOLO sin refs.
+    hay_refs = n_refs > 0
 
-    ref = bloque_referencias(ancla, n_refs, sin_molde)
+    ref = bloque_referencias(ancla, n_refs, sin_molde, role=role)
 
     # Bloque de COMPOSICION comun a toda la serie. La composicion (jerarquia, densidad con orden,
     # footer integrado, elemento que guia el ojo) la define el sistema. La ESTETICA — incluida la
@@ -458,6 +526,7 @@ IDENTIDAD DE MARCA (respetala estrictamente):
 - Tipografia: {tipografia.rstrip('.')}. El texto debe leerse PERFECTAMENTE, bien escrito, sin faltas de ortografia, y con alto contraste.
 - IDIOMA (CRITICO): escribe el texto EXACTAMENTE como se te da, palabra por palabra, EN ESPAÑOL.
   NO lo traduzcas al ingles ni a otro idioma, NO lo parafrasees, NO cambies ni agregues palabras.
+  Si las imágenes de referencia o la portada adjuntas contienen texto en OTRO idioma, IGNORA su idioma por completo: TODO el texto de esta slide va únicamente en español, exactamente como se te da.
 - No escribas dentro de la imagen ninguna medida, dimension, proporcion, unidad ni etiqueta tecnica,
   ni nombres internos de seccion; unicamente el mensaje real de la slide.
 - SIN marcas de agua, SIN logos ajenos, SIN rostros de personas reales.
@@ -467,15 +536,19 @@ IDENTIDAD DE MARCA (respetala estrictamente):
 - EYEBROW (opcional): una etiqueta corta de 1-3 palabras arriba (ej. "PASO 2", "EL ERROR #1") que da contexto antes del titulo. Usala solo si aporta.
 - Densidad CON orden: elementos alineados a una reticula, con aire; nunca texto flotando en el vacio ni amontonado. Se ve llena y ordenada, sin saturar.
 {presupuesto_texto(densidad)}
-- {extras_prohibidos(elemento_serie)}
+- {extras_prohibidos(elemento_serie, hay_refs)}
 - {tratamiento_visual_instr(tratamiento)}
 - Footer integrado como parte del diseño, no elementos sueltos flotando.
-- {numero_serie_instr(num, total, elemento_serie)}
+- {numero_serie_instr(num, total, elemento_serie, hay_refs)}
 
 """
 
     title = slide["title"]
     body = slide["content"]
+
+    # El @ del usuario va SOLO en portada y cierre, y solo si es real (nunca un placeholder).
+    handle_portada = (f'- Coloca el usuario "{handle}" pequeño y discreto, integrado en el footer del diseño '
+                      f'(nunca encima del gancho ni compitiendo con el).\n' if handle else "")
 
     if role == "gancho":
         return base + f"""ESTA ES LA PORTADA (SLIDE 1) — tiene que PARAR EL SCROLL.
@@ -490,7 +563,7 @@ REQUISITOS:
 - Anatomia de portada: gancho GRANDE (protagonista visual, el mayor peso tipografico) + subtitulo + un elemento protagonista.
 - Resalta UNA palabra clave del gancho con el color de acento {c_sec} (coloreada o subrayada), con la MISMA convencion en toda la serie.
 - El elemento protagonista refuerza la idea, en el estilo visual de la marca, con el color acento {c_sec}.
-- Fondo {c_fondo}. Maximo impacto y contraste. Que invite a seguir viendo el carrusel.
+{handle_portada}- Fondo {c_fondo}. Maximo impacto y contraste. Que invite a seguir viendo el carrusel.
 """
 
     if role == "valor":
@@ -524,8 +597,11 @@ REQUISITOS:
 - Fondo limpio {c_fondo}, acentos en {c_sec}. Consistente con la portada.
 """
 
-    # cierre
-    return base + f"""ULTIMA SLIDE (cierre e invitacion a actuar) — anatomia de cierre: CTA en panel + @usuario.
+    # cierre. El @ va solo si es real; si es None (vacio/placeholder), se OMITE toda mencion de usuario.
+    cabecera_cierre = "CTA en panel + tu usuario de Instagram" if handle else "CTA en panel"
+    handle_cierre = (f'- Incluye de forma clara el usuario "{handle}", integrado en el footer del diseño.\n'
+                     if handle else "")
+    return base + f"""ULTIMA SLIDE (cierre e invitacion a actuar) — anatomia de cierre: {cabecera_cierre}.
 
 Mensaje de cierre (escribelo TAL CUAL, natural y cercano):
 "{body}"
@@ -537,8 +613,7 @@ REQUISITOS:
   el que pegue con {estilo}). La PALABRA para comentar lleva el MAYOR peso visual dentro del panel.
 - El panel es parte del diseño, integrado, NUNCA un elemento pegado encima ni un banner generico.
 - Debajo o dentro del panel, opcional 1 linea corta de refuerzo (rapido/facil/gratis) si el mensaje la trae.
-- Incluye de forma clara el usuario "{handle}", integrado en el footer del diseño.
-- COHERENCIA DE MARCA (critico): usa EXACTAMENTE la misma paleta del resto del carrusel; el acento protagonista es {c_sec}.
+{handle_cierre}- COHERENCIA DE MARCA (critico): usa EXACTAMENTE la misma paleta del resto del carrusel; el acento protagonista es {c_sec}.
 """
 
 
@@ -661,6 +736,17 @@ def main():
     molde_on = molde_activo(marca, n_refs_local > 0)
     print(f"Molde de portada: {'ON' if molde_on else 'OFF'} (modo {molde_de(marca)}"
           f"{f', {n_refs_local} referencia(s) del usuario' if n_refs_local else ''})")
+
+    # Aviso: densidad 'completa' pero el copy viene corto (el copy se escribe SEGUN la densidad vigente).
+    cortas = slides_copy_corto(slides, total, densidad_de(marca))
+    if cortas:
+        print(f"⚠️  Densidad COMPLETA pero el copy viene corto en la(s) slide(s) {cortas}: "
+              f"'completa' pide 3-5 bullets por slide de valor. Reescribe el copy antes de generar.")
+
+    # Aviso: sin @ de Instagram real (vacio o placeholder) -> las slides saldran SIN @ (jamas placeholder).
+    if instagram_usuario_real(marca) is None:
+        print("⚠️  No tienes tu @ de Instagram configurado — las slides saldrán sin tu @. "
+              "Dímelo y lo agrego a tu marca.")
 
     def _params_prompt(is_cover: bool, molde_on: bool, n_refs_disponibles: int):
         """Devuelve (ancla, n_refs, sin_molde) para build_prompt segun molde e is_cover."""

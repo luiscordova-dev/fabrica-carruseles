@@ -119,20 +119,54 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
    los hex** (primario, secundario/acento, fondo, texto) y confírmaselos.
 4. **PASO DE ESTILO** — sigue este árbol de decisión **sin saltarte pasos**. La referencia es la petición #1;
    sin referencias, se crea el estilo con preguntas. **Pregunta de entrada** (una sola):
-   > ¿Tienes 1–3 carruseles que te **ENCANTEN** para inspirarnos en el diseño? Pásame capturas 📸 — ojo: los
-   > uso de **INSPIRACIÓN** para modelar la composición, **jamás los copio**: el diseño sale 100% con tu marca.
-   > ¿No tienes ninguno a la mano? No pasa nada — creamos tu estilo con unas preguntas rápidas.
+   > ¿Tienes **UN carrusel COMPLETO** que te **ENCANTE** para inspirarnos? Pásame capturas de **TODAS sus slides**
+   > (portada, las de en medio y el cierre) 📸. ¿Por qué completo? Porque así aprendo su **sistema entero**: cómo es
+   > su portada, cómo enseñan las de valor y cómo cierran. Si quieres, suma 1–2 capturas sueltas extra de otros
+   > carruseles. Ojo: las uso de **INSPIRACIÓN** para modelar la composición, **jamás las copio**: el diseño sale
+   > 100% con tu marca. ¿No tienes ninguno a la mano? No pasa nada — creamos tu estilo con unas preguntas rápidas.
 
-   #### CAMINO A — CON referencias (MODELAR)
-   1. **Guarda** las capturas en `config/referencias/` de la skill (`ref-01.png`, `ref-02.png`… — **máx 7**,
-      jpeg/png/webp). Pide **solo carruseles** (no "un post").
-   2. **INFIERE de ellas** (no preguntes): la **densidad** (¿mucho texto tipo mini-guía o aireado?), el
-      **tratamiento visual** (foto / ilustración / gráficos), el **estilo de tipografía** y el **tipo de
-      elementos** (bullets, recuadros, anotaciones). Escribe también un `estilo_visual` descriptivo.
-   3. **CONFIRMA en UNA sola línea** (no lo interrogues de nuevo): *"Veo el estilo: [mini-guía con bullets e
-      iconos / aireado de frases grandes], [ilustración], letra [amigable] — ¿lo armamos así con tu marca?"* →
-      ajusta lo que corrija.
-   4. **Guarda todo en `marca.json`.** `molde` queda en `"auto"` → **apagado** (las referencias son el ancla común).
+   **Matriz de los dos caminos** (impleméntala celda por celda; los invariantes de abajo valen para AMBOS):
+
+   | Variable | CAMINO A — CON referencias | CAMINO B — SIN referencias |
+   |---|---|---|
+   | Petición | UN carrusel COMPLETO (todas las slides) + opcional 1–2 sueltas | — |
+   | Guardado | archivos en `config/referencias/` + `ls` + confirmación + candado pre-gen | — |
+   | densidad · tipografía · tratamiento · `elemento_serie` | **INFERIDOS** de las refs → **sobrescriben** `marca.json` → confirmar en 1 línea (**NO se preguntan**) | se **preguntan** (3 preguntas, una a la vez) |
+   | Molde | **OFF** (refs = ancla) → todas en paralelo | **ON** (portada ancla, solo tokens de estilo) |
+   | Serie / footer | siguen el **patrón de las refs** (1 convención idéntica) | default **número abajo-derecha** clavado |
+   | Prompt | modelado **ROL→ROL** (portada→portada, valor→valor, cierre→cierre) | anatomía default 4 zonas + CTA en recuadro |
+   | Copy | presupuesto de la densidad **inferida** | presupuesto de la densidad elegida |
+
+   **Invariantes (AMBOS caminos, sin excepción):** 1) paleta/**colores SIEMPRE del usuario** (nunca de las refs);
+   2) **modelar ≠ copiar** (pieza original, sin sus textos/logos); 3) todo en **español**, ignora el idioma de las
+   refs/portada; 4) **UNA** convención de serie por carrusel, idéntica en todas; 5) el **copy se escribe según la
+   densidad** vigente; 6) `instagram_usuario` real → solo portada y cierre; vacío/placeholder → se **omite** todo @
+   (jamás placeholder al modelo); 7) CTA final en **recuadro/panel** integrado; 8) cero narración técnica, tono
+   motivador breve; 9) refs nuevas después → reemplaza/suma → re-inferir → confirmar; "con/sin molde" manual → obedecer.
+
+   #### CAMINO A — CON referencias (MODELAR)  ·  *referencias > defaults*
+   1. **GUARDA las capturas como ARCHIVOS — paso OBLIGATORIO Y VERIFICADO** (el bug real: las refs quedaron solo en
+      el chat, `config/referencias/` **vacía** → se generó SIN refs "diciendo" que las usaba):
+      - Las imágenes llegan como **rutas de archivo** en la conversación. **Cópialas físicamente** con `cp` a
+        `config/referencias/` de la skill: `ref-01.png`, `ref-02.png`… **en el orden que el usuario las mande**
+        (ref-01 = su portada, ref-02 = la siguiente…; **máx 7**, jpeg/png/webp).
+      - **VERIFICA con `ls`** que los archivos existen y **CONFÍRMASELO**: *"✓ Guardé tus N referencias — las voy a
+        usar de guía visual en cada generación."*
+      - **CANDADO PRE-GENERACIÓN:** antes de generar, si el usuario pasó referencias en el chat pero
+        `config/referencias/` está **vacía** → **DETENTE**, guárdalas primero (o pídelas de nuevo si no localizas las
+        rutas). **PROHIBIDO** generar "diciendo" que usas referencias sin los archivos presentes.
+   2. **INFIERE de las referencias — la inferencia MANDA** (con referencias **NO preguntas** densidad, tipografía ni
+      tratamiento; los infieres): la **densidad** (¿mini-guía densa o aireada?), el **tratamiento visual**
+      (foto / ilustración / gráficos), la **tipografía**, el **`elemento_serie`** (número abajo, badge arriba, barra,
+      dots…) y el tipo de elementos (bullets, recuadros, anotaciones). Escribe también un `estilo_visual` descriptivo.
+      Regla explícita: **refs densas → `densidad: "completa"`** (nunca "media" por default).
+   3. **ACTUALIZA `marca.json` con esos valores, SOBRESCRIBIENDO los viejos.** Los valores de un onboarding anterior
+      **NO sobreviven** si las referencias dicen otra cosa y el usuario confirma. **CONFIRMA en UNA sola línea**:
+      *"Veo: mini-guía densa, letra manuscrita, gráficos con doodles, número de serie abajo — ¿así?"* → ajusta lo que corrija.
+   4. **`molde` queda en `"auto"` → OFF** (las referencias son el ancla común) → todas las slides en paralelo. El
+      prompt **modela ROL→ROL** (su portada→nuestra portada, sus slides de valor→las nuestras, su cierre→el nuestro) y
+      sigue la **convención de serie/footer de las referencias** (UNA sola, idéntica en toda la serie). Esto lo aplica
+      solo `generar.py` cuando detecta referencias adjuntas — tú solo guárdalas e infiérelas bien.
 
    #### CAMINO B — SIN referencias (CREAR TU ESTILO, una pregunta a la vez, NUNCA en bloque)
    1. *"¿Qué tipo de imágenes van con tu marca? a) **Fotografía realista** b) **Ilustración/caricatura**
@@ -143,19 +177,23 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
       `tipografia` (guárdala con una descripción, ej. "serif elegante tipo editorial"). **Importa**: sin esto todo
       sale con la misma condensada bold "corporativa"; la letra le da personalidad.
    4. **Guarda en `marca.json`.** `molde` queda en `"auto"` → **encendido** (la portada ancla la serie, copiando
-      solo tokens de estilo).
-   5. **Cierra con la puerta abierta:** *"Y cuando veas un carrusel que te guste, pásamelo y subo el nivel 📸."*
+      solo tokens de estilo). **`elemento_serie` = default `"numero"`** (abajo-derecha clavado, idéntico en todas).
+   5. **Cierra con la puerta abierta:** *"Y cuando veas un carrusel que te encante, pásamelo y subo el nivel 📸."*
 
    #### AMBOS caminos terminan IGUAL
    Resumen del estilo en 2–3 líneas → **OK del usuario** → `marca.json` completo → continúa el flujo normal.
-   En cualquier carrusel **FUTURO**, si trae referencias nuevas: pregunta si **reemplazan o se suman**, re-infiere,
-   y confirma en una línea. Se guardan una vez y `generar.py` las sube frescas a Kie en cada corrida (URLs ~24h).
+   En cualquier carrusel **FUTURO**, si trae referencias nuevas: pregunta si **reemplazan o se suman**, guárdalas
+   (paso verificado de arriba), **re-infiere y sobrescribe** `marca.json`, y confirma en una línea. Se guardan una vez
+   y `generar.py` las sube frescas a Kie en cada corrida (URLs ~24h).
 
    **Candados que aplican siempre** (en cualquiera de los dos caminos):
    - **Modelar ≠ copiar:** *"tus referencias me enseñan el **CÓMO** está compuesto — el diseño sale **100% de TU
      marca**, nunca una copia."* Se toman los PRINCIPIOS (composición, densidad, jerarquía, clase de elementos,
-     energía); **nunca** su layout tal cual, textos, fotos/ilustraciones, logos, ni colores/tipografías (la
-     paleta y tipografía del usuario mandan).
+     energía); **nunca** su layout tal cual, textos, fotos/ilustraciones, logos, ni **COLORES** (la **paleta/colores
+     del usuario mandan SIEMPRE**; la **tipografía sí se modela** de las referencias en el Camino A).
+   - **referencias > defaults:** los defaults 'clavados' (número abajo-derecha, anatomía fija, extras vetados) aplican
+     **SOLO SIN referencias**. Con referencias, el `elemento_serie`/footer, la tipografía y la densidad se **infieren
+     del patrón de las refs** — manteniendo **UNA sola convención por serie, idéntica en todas las slides** (eso NO se negocia).
    - **El visual SIEMPRE va integrado** en la composición, nunca como foto recortada en un bloque tipo diapositiva.
    - **La composición la pone el sistema; la estética la eliges tú:** la skill no impone "cálido" ni "frío".
      La anatomía default es fija y lean (eyebrow opcional → título con una palabra en color de acento → subtítulo
@@ -166,7 +204,10 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
      `"numero+flecha-footer"`; default `"numero"`), y esa única convención se mantiene en toda la serie.
    - **`molde`** (consistencia de serie): `"auto"` (default) | `"on"` (siempre molde) | `"off"` (nunca). Normalmente
      déjalo en `"auto"`; el usuario puede forzar diciendo "con molde" / "sin molde".
-5. **¿Cuál es tu usuario de Instagram?** (ej. @sunegocio)
+5. **¿Cuál es tu usuario de Instagram?** — pídelo **aunque la publicación se difiera**: *"¿cuál es tu @ de Instagram?
+   — solo para ponerlo en tus slides; la conexión para publicar la hacemos después"* (ej. @sunegocio). Si el usuario
+   **no lo da**, deja `instagram_usuario` **VACÍO** (`""`) — **JAMÁS un placeholder** como `@tu_usuario`: `generar.py`
+   omite todo @ cuando está vacío, pero renderiza literal cualquier placeholder que le mandes.
 
 Con eso, muestra un resumen corto y pide confirmación:
 
@@ -240,15 +281,25 @@ Reglas al escribir (críticas — el test real falló aquí):
   invención — es la misma regla de honestidad que en `reference/estructura-carrusel.md`.
 - El **título es el titular real** que se verá grande. **NUNCA** pongas "Gancho/Valor/Recompensa/CTA"
   como título; eso es el rol interno, no el texto que se muestra.
-- **Respeta el presupuesto de texto**: título ≤ ~7 palabras, cuerpo ≤ ~30 palabras (2-3 bullets cortos).
+- **El COPY se escribe SEGÚN la densidad de `marca.json`** (la densidad dicta el presupuesto del **copy**, no solo de
+  la imagen): **`completa`** = título + subtítulo + **3–5 bullets (≤10 palabras c/u)** + anotación opcional, **por cada
+  slide de valor**; **`media`** = título + **2–3 bullets** cortos; **`aireada`** = título + **1–2 líneas**. Si la
+  densidad es `completa` y el copy te salió **corto** (1–2 bullets), **reescríbelo antes de generar** (el dry-run te
+  avisa: *"Densidad COMPLETA pero el copy viene corto…"*).
 - **No repitas el título dentro del cuerpo** de la misma slide.
 - Usa guion normal (`-`) en el encabezado.
-- Última slide = el cierre que definiste en el Paso 3 (palabra clave **o** pregunta abierta) + su @.
+- Última slide = el cierre que definiste en el Paso 3 (palabra clave **o** pregunta abierta) + su @ **si lo tiene
+  configurado** (si `instagram_usuario` está vacío, va sin @ — nunca un placeholder).
 - **Muéstrale el copy y pide su OK** (o ajusta) antes de generar. El copy es lo más importante.
 
 ### Paso 5 — Generar las imágenes
-Opcional pero recomendado: corre primero con `--dry-run` (no gasta) para revisar. Luego genera
-(recuerda: `PY` es el Python del venv):
+**CANDADO PRE-GENERACIÓN (obligatorio):** si el usuario pasó referencias en el chat, confirma con `ls` que
+`config/referencias/` **no está vacía** antes de generar. Si está vacía, **DETENTE** y guárdalas primero — nunca
+generes "diciendo" que usas referencias sin los archivos. (Sin `marca.json`, `generar.py` **aborta** con un aviso
+para correr el onboarding: no genera con datos de ejemplo.)
+
+**Corre SIEMPRE primero `--dry-run`** (no gasta) y **lee sus avisos** — te marca si el copy quedó corto para densidad
+`completa` y si falta tu @ de Instagram. Luego genera (recuerda: `PY` es el Python del venv):
 
 ```
 PY "$SK/scripts/generar.py" "$SK/outputs/<carpeta>" --dry-run
