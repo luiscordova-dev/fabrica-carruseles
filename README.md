@@ -38,7 +38,7 @@ Esto copia la skill a `~/.claude/skills/carrusel/`. Abre Claude Code y escribe `
 
 La skill es **gratis**. Para usarla necesitas:
 - **Claude Code** (plan Pro).
-- **Kie AI** para las imágenes — ~**$0.10 USD por lámina** (un carrusel de 6 ≈ $0.60).
+- **Kie AI** para las imágenes — ~**$0.10 USD por slide** (un carrusel de 6 ≈ $0.60).
 - **Upload Post** para publicar — **gratis** hasta 10 publicaciones al mes (sin tarjeta).
 
 Es normal pagar los servicios que uno usa; la skill te guía para conseguir cada llave.
@@ -55,10 +55,16 @@ página de Facebook (requisito de Meta). La skill te acompaña a dejarlo listo.
 python3 scripts/generar.py "outputs/mi-carrusel" --dry-run   # revisar sin gastar
 python3 scripts/generar.py "outputs/mi-carrusel"             # generar de verdad
 
-# publicar
+# publicar (por defecto solo en Instagram)
 python3 scripts/publicar.py "outputs/mi-carrusel" --caption "..." --dry-run
 python3 scripts/publicar.py "outputs/mi-carrusel" --caption "..."
+
+# publicar en varias redes conectadas en Upload Post (opcional)
+python3 scripts/publicar.py "outputs/mi-carrusel" --caption "..." --plataformas instagram,tiktok,linkedin
 ```
+
+> El campo opcional `plataformas` en `config/marca.json` (ej. `["instagram", "tiktok"]`) fija tus
+> redes por defecto; `--plataformas` lo sobreescribe. Sin nada, publica solo en Instagram.
 
 ## Créditos
 

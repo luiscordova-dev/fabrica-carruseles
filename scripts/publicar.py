@@ -2,13 +2,17 @@
 """
 publicar.py - Publica un carrusel de imagenes en Instagram usando Upload-Post.
 
-Sube las laminas (PNG) de una carpeta como UN carrusel de Instagram, con caption.
+Sube las slides (PNG) de una carpeta como UN carrusel de Instagram, con caption.
 La API de Upload-Post arma el carrusel automaticamente al mandar varias fotos.
 
 Uso:
     python3 publicar.py <ruta-carpeta-bundle> --caption "Tu texto"
     python3 publicar.py <ruta-carpeta-bundle> --caption-file caption.txt
     python3 publicar.py <ruta-carpeta-bundle> --caption "..." --dry-run
+    python3 publicar.py <ruta-carpeta-bundle> --caption "..." --plataformas instagram,tiktok
+
+Por defecto publica solo en instagram. Con --plataformas eliges otras redes que
+tengas conectadas en Upload-Post (o pon "plataformas": [...] en config/marca.json).
 
 --dry-run arma el request EXACTO (endpoint, headers, campos, archivos) y lo
 muestra SIN publicar nada. Sirve para verificar antes de postear en vivo.
@@ -43,6 +47,42 @@ MARCA_FILE = SKILL_ROOT / "config" / "marca.json"
 UPLOAD_POST_URL = "https://api.upload-post.com/api/upload_photos"
 MAX_FOTOS = 10  # limite de Instagram por carrusel
 
+# Plataformas que Upload-Post acepta para FOTOS/carruseles en el campo platform[]
+# (lista oficial del endpoint /api/upload_photos, docs.upload-post.com).
+PLATAFORMAS_SOPORTADAS = [
+    "instagram", "tiktok", "linkedin", "facebook", "x",
+    "threads", "pinterest", "bluesky", "reddit", "discord", "telegram",
+]
+# Estas redes exigen parametros extra para fotos que esta skill AUN no manda,
+# asi que publicar ahi puede fallar (limitacion documentada, no implementada):
+#   facebook  -> facebook_page_id
+#   pinterest -> pinterest_board_id
+#   reddit    -> subreddit
+PLATAFORMAS_REQUIEREN_EXTRA = {
+    "facebook": "facebook_page_id",
+    "pinterest": "pinterest_board_id",
+    "reddit": "subreddit",
+}
+# Redes 100% listas con solo fotos + caption (sin parametros extra).
+PLATAFORMAS_LISTAS = [p for p in PLATAFORMAS_SOPORTADAS if p not in PLATAFORMAS_REQUIEREN_EXTRA]
+
+
+def parse_plataformas(raw: str) -> List[str]:
+    """Normaliza '--plataformas' (lista por coma) y valida contra la lista oficial de fotos."""
+    plats = []
+    for p in (raw or "").split(","):
+        p = p.strip().lower()
+        if p and p not in plats:  # sin vacios ni duplicados, conserva el orden
+            plats.append(p)
+    if not plats:
+        plats = ["instagram"]
+    invalidas = [p for p in plats if p not in PLATAFORMAS_SOPORTADAS]
+    if invalidas:
+        print(f"❌ Plataforma(s) no soportada(s) para fotos: {', '.join(invalidas)}.")
+        print(f"   Válidas (Upload-Post, fotos): {', '.join(PLATAFORMAS_SOPORTADAS)}.")
+        sys.exit(1)
+    return plats
+
 
 def load_marca() -> dict:
     if MARCA_FILE.exists():
@@ -52,7 +92,7 @@ def load_marca() -> dict:
 
 
 def find_laminas(bundle_path: Path) -> List[Path]:
-    """Busca las laminas PNG ordenadas (laminas/lamina-01.png, ...)."""
+    """Busca las slides PNG ordenadas (laminas/lamina-01.png, ...)."""
     laminas_dir = bundle_path / "laminas"
     search_dir = laminas_dir if laminas_dir.exists() else bundle_path
     fotos = sorted(search_dir.glob("lamina-*.png"))
@@ -79,6 +119,9 @@ def main():
                     help="Perfil de Upload-Post (si no, se toma de marca.json)")
     ap.add_argument("--palabra", type=str, default=None,
                     help="Palabra del CTA de ESTE carrusel (para verificar que el caption la incluya).")
+    ap.add_argument("--plataformas", type=str, default=None,
+                    help="Redes donde publicar, separadas por coma (default: marca.json o 'instagram'). "
+                         "Opciones: " + ", ".join(PLATAFORMAS_SOPORTADAS))
     ap.add_argument("--dry-run", action="store_true",
                     help="Arma y muestra el request sin publicar (no postea nada).")
     args = ap.parse_args()
@@ -88,28 +131,47 @@ def main():
 
     fotos = find_laminas(bundle_path)
     if not fotos:
-        print(f"❌ No encontre laminas PNG en {bundle_path}. Genera el carrusel primero.")
+        print(f"❌ No encontre slides PNG en {bundle_path}. Genera el carrusel primero.")
         sys.exit(1)
     if len(fotos) > MAX_FOTOS:
-        print(f"⚠️  Tienes {len(fotos)} laminas; Instagram acepta {MAX_FOTOS} por carrusel. "
+        print(f"⚠️  Tienes {len(fotos)} slides; Instagram acepta {MAX_FOTOS} por carrusel. "
               f"Se subiran las primeras {MAX_FOTOS}.")
         fotos = fotos[:MAX_FOTOS]
 
     caption = build_caption(args)
     user = args.user or marca.get("upload_post_user")
 
+    # Plataformas: CLI (--plataformas) manda; si no, lo de marca.json; si no, instagram.
+    if args.plataformas is not None:
+        plataformas = parse_plataformas(args.plataformas)
+    else:
+        m_plats = marca.get("plataformas")
+        if isinstance(m_plats, list) and m_plats:
+            plataformas = parse_plataformas(",".join(str(x) for x in m_plats))
+        else:
+            plataformas = ["instagram"]
+
     print(f"\n{'='*60}\nPUBLICAR CARRUSEL EN INSTAGRAM\n{'='*60}")
     print(f"📦 Carpeta: {bundle_path}")
-    print(f"🖼️  Laminas ({len(fotos)}):")
+    print(f"🖼️  Slides ({len(fotos)}):")
     for f in fotos:
         print(f"     - {f.name}")
     print(f"👤 Perfil (user): {user or '(NO configurado)'}")
+    print(f"🌐 Plataformas: {', '.join(plataformas)}")
+    # Aviso: redes que piden parametros extra que esta skill todavia no configura.
+    faltan_extra = [p for p in plataformas if p in PLATAFORMAS_REQUIEREN_EXTRA]
+    for p in faltan_extra:
+        print(f"⚠️  '{p}' necesita el parámetro extra '{PLATAFORMAS_REQUIEREN_EXTRA[p]}' para fotos, "
+              f"que esta skill aún no envía; esa red puede fallar.")
+    if faltan_extra:
+        print(f"   Redes 100% listas con solo fotos + caption: {', '.join(PLATAFORMAS_LISTAS)}.")
     print(f"📝 Caption:\n{caption}\n")
 
     # Campos multipart tal como los espera Upload-Post.
-    data_fields = [
-        ("user", user or "TU_PERFIL"),
-        ("platform[]", "instagram"),
+    # 'platform[]' se repite una vez por cada red seleccionada.
+    data_fields = [("user", user or "TU_PERFIL")]
+    data_fields += [("platform[]", p) for p in plataformas]
+    data_fields += [
         ("title", caption),          # en Upload-Post el caption de fotos va en 'title'
         ("media_type", "IMAGE"),
     ]
@@ -123,13 +185,13 @@ def main():
         for k, v in data_fields:
             shown = v if len(str(v)) < 80 else str(v)[:77] + "..."
             print(f"   {k} = {shown}")
-        print("\nArchivos (se repite 'photos[]' por cada lamina):")
+        print("\nArchivos (se repite 'photos[]' por cada slide):")
         for f in fotos:
             print(f"   photos[] = @{f}  (image/png)")
         # Validaciones utiles
         print("\nChequeos:")
         print(f"   [{'ok' if user else 'FALTA'}] perfil 'user' configurado")
-        print(f"   [{'ok' if 1 <= len(fotos) <= MAX_FOTOS else 'FALTA'}] entre 1 y {MAX_FOTOS} laminas ({len(fotos)})")
+        print(f"   [{'ok' if 1 <= len(fotos) <= MAX_FOTOS else 'FALTA'}] entre 1 y {MAX_FOTOS} slides ({len(fotos)})")
         print(f"   [{'ok' if caption.strip() else 'FALTA'}] caption no vacio")
         palabra = (args.palabra or "").strip()
         if palabra:
@@ -154,7 +216,7 @@ def main():
     headers = {"Authorization": f"Apikey {api_key}"}
     files = [("photos[]", (f.name, open(f, "rb"), "image/png")) for f in fotos]
     try:
-        print(f"⏳ Publicando {len(files)} láminas...")
+        print(f"⏳ Publicando {len(files)} slides...")
         resp = requests.post(UPLOAD_POST_URL, headers=headers, data=data_fields,
                              files=files, timeout=180)
         print(f"HTTP {resp.status_code}")

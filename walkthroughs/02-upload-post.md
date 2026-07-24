@@ -47,6 +47,14 @@ Cuando ya sea Business/Creator + página de Facebook, sigan con la llave de Uplo
 Cuando sepas el nombre del Profile, guárdalo en `config/marca.json` como `upload_post_user`. Es lo
 que `publicar.py` usa como `--user`. Si te equivocas de cuenta, se corrige cambiando ese valor.
 
+## Multicanal (opcional)
+En ese mismo panel de **"Users"** (https://app.upload-post.com/manage) puedes conectar más redes además
+de Instagram: TikTok, Facebook, LinkedIn, X, Threads, etc. Conectas las cuentas que quieras y la skill
+publica donde le digas: por defecto solo Instagram, o pásale `--plataformas instagram,tiktok,linkedin`
+(o deja tus redes por defecto en `config/marca.json`, campo `plataformas`). Nota: Facebook, Pinterest y
+Reddit piden datos extra que la skill aún no manda; las 100% listas con solo fotos + caption son
+instagram, tiktok, linkedin, x, threads, bluesky, discord y telegram.
+
 ## Cuando el usuario pegue la llave y el perfil
 - **NO imprimas la llave** de vuelta.
 - Guarda la llave en `.env` como `UPLOAD_POST_API_KEY=`.
@@ -55,7 +63,7 @@ que `publicar.py` usa como `--user`. Si te equivocas de cuenta, se corrige cambi
 
 ## Verificación (sin publicar nada)
 Corre `scripts/publicar.py <carpeta> --caption "prueba" --dry-run`. Muestra el request
-exacto que se enviaría y una lista de chequeos (perfil configurado, número de láminas,
+exacto que se enviaría y una lista de chequeos (perfil configurado, número de slides,
 llave presente) **sin publicar**. Cuando todo salga en verde, la primera publicación real
 la haces cuando tengas un carrusel que te guste.
 

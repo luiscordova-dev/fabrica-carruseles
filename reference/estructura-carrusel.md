@@ -1,6 +1,6 @@
 # Cómo se escribe un carrusel que convierte
 
-Esta es la guía que sigue la skill para escribir el copy de las láminas **y** el caption. La meta
+Esta es la guía que sigue la skill para escribir el copy de las slides **y** el caption. La meta
 no es "informar": es **cambiar un comportamiento** y **generar suficiente confianza para que la
 venta pase después**. Todo lo de abajo está al servicio de eso.
 
@@ -13,26 +13,26 @@ Estructura mental de cualquier carrusel:
 
 Estas evitan los errores que sí rompen la imagen. No las saltes:
 
-- **El título de cada lámina (`### LAMINA N - <título>`) es el titular REAL** que se verá grande.
+- **El título de cada slide (`### SLIDE N - <título>`) es el titular REAL** que se verá grande.
   **NUNCA** escribas ahí la palabra del rol ("Gancho", "Valor", "Recompensa", "CTA"): eso es el
-  nombre interno del papel de la lámina, no se muestra.
+  nombre interno del papel de la slide, no se muestra.
 - **Presupuesto de texto** (los modelos de imagen escriben bien POCO texto y mal MUCHO):
   - Título: máximo ~6-8 palabras. Una idea.
   - Cuerpo: máximo ~30 palabras, o 2-3 bullets de ~6-10 palabras.
-  - Si no cabe, esa lámina trae dos ideas → pártela en dos.
-- **No repitas el título dentro del cuerpo** de la misma lámina.
+  - Si no cabe, esa slide trae dos ideas → pártela en dos.
+- **No repitas el título dentro del cuerpo** de la misma slide.
 - No metas medidas ni etiquetas técnicas en el texto (el tamaño lo controla el script).
 
 ---
 
-## PARTE A — El copy de las láminas
+## PARTE A — El copy de las slides
 
-### 1. La lámina 1 es un gancho que frena el scroll
+### 1. La slide 1 es un gancho que frena el scroll
 Es la más importante: si no para el dedo, nada más existe. Vive en **dolor** (lo que la persona
 quiere evitar) o **promesa** (lo que quiere lograr, en poco tiempo). Patrones:
 
 - **Número grande al frente:** *"7 tareas que tu negocio puede automatizar esta semana."*
-- **Promesa con tiempo comprimido:** *"Lo que tardé 3 años en aprender de ventas, en 6 láminas."*
+- **Promesa con tiempo comprimido:** *"Lo que tardé 3 años en aprender de ventas, en 6 slides."*
 - **Dolor / enemigo común** (nombra el error o la creencia que la traiciona):
   *"Tu rutina de gym no falla por falta de esfuerzo. Falla por esto."*
 - **Contraste / curiosidad** (*"Creía que era sobre X, pero en realidad era sobre Y"*):
@@ -43,8 +43,8 @@ Reglas: se lee en 2 segundos, es **específico** (no "3 tips para crecer"), y **
 verdadero** (casi polémico, nunca clickbait falso). Ganchos genéricos ("Cómo conseguir más leads",
 "Los beneficios de la IA") están prohibidos: nadie se detiene.
 
-### 2. Láminas intermedias: valor, UNA idea por lámina
-- **Una sola idea por lámina.** Si tienes 7 pasos, son 7 láminas, no una con los 7.
+### 2. Slides intermedias: valor, UNA idea por slide
+- **Una sola idea por slide.** Si tienes 7 pasos, son 7 slides, no una con los 7.
 - **Da el "qué", no todo el "cómo".** Regala el mapa y el *qué hacer*; el *cómo* fino (la
   implementación, la config a la medida) es lo que se vende después. No es esconder valor: es dar
   claridad completa a nivel de decisión y dejar la ejecución detallada para la oferta.
@@ -54,7 +54,7 @@ verdadero** (casi polémico, nunca clickbait falso). Ganchos genéricos ("Cómo 
 - **Prueba variada:** alterna **historia** (un caso → confianza), **dato** (una cifra → credibilidad)
   y **explicación** (causa-efecto → comprensión).
 
-### 3. Última lámina: recompensa + UN solo CTA
+### 3. Última slide: recompensa + UN solo CTA
 Cumple la promesa del gancho y pide **una sola acción** (nunca tres llamados que compiten):
 - **Palabra a comentar** (entrega un recurso): *"Comenta AGENTE y te mando la guía."* Palabra corta
   y fácil de escribir (mejor "MAPA" que "blueprint").
@@ -67,7 +67,7 @@ con los "sabores" que la gente quiere: **rápido, fácil, sin riesgo, barato** (
 ### Reglas de oro
 - **Honestidad total.** Cero resultados, cifras o casos inventados. Un dato real modesto vende más
   que uno inflado — y no quema la confianza, que es el activo que construyes.
-- **Una idea por lámina.**
+- **Una idea por slide.**
 - **Lenguaje simple**, con las **palabras exactas de la audiencia** (no las tuyas). Se lee, no se descifra.
 - El diseño bonito ayuda solo si mejora la comprensión; nunca salva una idea vacía.
 
@@ -78,19 +78,19 @@ con los "sabores" que la gente quiere: **rápido, fácil, sin riesgo, barato** (
 El caption no resume el carrusel: dispara la acción y alimenta la entrega automática.
 
 ### Estructura
-1. **Gancho corto (1 línea)** — refuerza la tensión de la lámina 1 para quien llega por el feed.
+1. **Gancho corto (1 línea)** — refuerza la tensión de la slide 1 para quien llega por el feed.
 2. **Micro-valor (2-4 líneas)** — una idea útil que se sostiene sola, aunque no abran el carrusel. Da, no anuncies.
 3. **UN CTA claro** — con la **palabra clave** bien visible: *"Comenta AGENTE y te mando el mapa. 👇"*
 
 ### Da mucho, pide poco
 Inclina la balanza fuerte hacia **dar valor gratis**. Cada pieza útil construye confianza, y la
 confianza baja el costo de que te compren después. Estándar: **el valor se sostiene solo** — si
-alguien solo lee el caption y las láminas y nunca compra, aun así salió ganando. Vender es la
+alguien solo lee el caption y las slides y nunca compra, aun así salió ganando. Vender es la
 consecuencia de haber dado primero, no el objetivo declarado de cada post.
 
 ### El CTA conecta con la entrega por DM
 Comenta la palabra → un sistema le manda el recurso por mensaje directo → queda capturado como lead.
-- La palabra va en el caption **y** en la última lámina.
+- La palabra va en el caption **y** en la última slide.
 - Palabra simple y fácil de escribir.
 - Varía la palabra por publicación (AGENTE, MAPA, SOP…) apuntando al mismo recurso: así sabes qué post trajo cada lead.
 - **Interés = lead.** Cada comentario o guardado es alguien que levantó la mano; hay que darle seguimiento rápido (el valor de un lead cae con las horas).
@@ -103,10 +103,10 @@ Sirven para **encontrar a la persona correcta**, no para sumar vistas sueltas. U
 ---
 
 ## Checklist antes de publicar
-- ☐ ¿La lámina 1 para el scroll en 2 segundos (dolor, número, promesa, contraste o enemigo)?
-- ☐ ¿Una sola idea por lámina, dentro del presupuesto de texto?
+- ☐ ¿La slide 1 para el scroll en 2 segundos (dolor, número, promesa, contraste o enemigo)?
+- ☐ ¿Una sola idea por slide, dentro del presupuesto de texto?
 - ☐ ¿Doy el "qué" con claridad y dejo el "cómo" fino para la oferta?
-- ☐ ¿UN solo CTA, con la palabra clave en la última lámina y en el caption?
+- ☐ ¿UN solo CTA, con la palabra clave en la última slide y en el caption?
 - ☐ ¿Todo dato/caso es real (cero métricas inventadas)?
 - ☐ ¿El caption da valor que se sostiene solo, aunque nadie compre?
 - ☐ ¿Título = titular real (no la palabra del rol)?

@@ -1,7 +1,7 @@
 # Llave de Kie AI (crea las imágenes)
 
-Kie AI es el servicio que dibuja cada lámina del carrusel (usa el modelo nano-banana-pro).
-Cuesta muy poco: alrededor de **$0.10 USD por imagen** (un carrusel de 6 láminas ≈ $0.60).
+Kie AI es el servicio que dibuja cada slide del carrusel (usa el modelo nano-banana-pro).
+Cuesta muy poco: alrededor de **$0.10 USD por imagen** (un carrusel de 6 slides ≈ $0.60).
 
 ## Guíalo así (paso a paso)
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-generar.py - Genera las laminas de un carrusel de Instagram con Kie AI (nano-banana-pro).
+generar.py - Genera las slides de un carrusel de Instagram con Kie AI (nano-banana-pro).
 
 Toma la MARCA del usuario (config/marca.json) y el COPY del carrusel
 (un archivo carrusel.md con la estructura Gancho -> Valor -> Cierre)
@@ -11,7 +11,7 @@ Uso:
     python3 generar.py <ruta-carpeta-bundle> --dry-run
     python3 generar.py <ruta-carpeta-bundle> --regenerar "2,4"
 
-La carpeta bundle debe contener un archivo "carrusel.md" con las laminas.
+La carpeta bundle debe contener un archivo "carrusel.md" con las slides.
 Las imagenes se guardan en <ruta-carpeta-bundle>/laminas/lamina-01.png, etc.
 
 Requiere:
@@ -50,7 +50,7 @@ MODEL = "nano-banana-pro"
 ASPECT_RATIO = "4:5"   # Instagram carrusel (vertical). El encuadre va SOLO por este parametro,
 RESOLUTION = "1K"      # nunca en el prompt. 1K (~1024px) basta para IG y es mas rapido/barato que 2K/4K.
 FORMAT = "png"
-MAX_POLL_ATTEMPTS = 120   # ~10 min por lamina: Kie AI a veces encola y tarda varios minutos
+MAX_POLL_ATTEMPTS = 120   # ~10 min por slide: Kie AI a veces encola y tarda varios minutos
 POLL_INTERVAL = 5
 
 
@@ -83,12 +83,12 @@ def load_marca() -> Dict:
 
 def parse_carrusel(bundle_path: Path) -> Optional[List[Dict]]:
     """
-    Lee carrusel.md y extrae las laminas.
+    Lee carrusel.md y extrae las slides.
 
-    Formato esperado (una lamina = encabezado + bloque de texto entre ```):
-        ### LAMINA 1 - Titulo del gancho
+    Formato esperado (una slide = encabezado + bloque de texto entre ```):
+        ### SLIDE 1 - Titulo del gancho
         ```
-        Texto que va en la lamina.
+        Texto que va en la slide.
         ```
     """
     carrusel_file = bundle_path / "carrusel.md"
@@ -116,11 +116,11 @@ def parse_carrusel(bundle_path: Path) -> Optional[List[Dict]]:
     slides.sort(key=lambda s: s["number"])
 
     if not slides:
-        print("❌ No pude extraer laminas de carrusel.md.")
-        print("   Revisa que cada lamina tenga el formato '### LAMINA N - Titulo' + bloque ```.")
+        print("❌ No pude extraer slides de carrusel.md.")
+        print("   Revisa que cada slide tenga el formato '### SLIDE N - Titulo' + bloque ```.")
         return None
 
-    print(f"   ✅ {len(slides)} laminas encontradas")
+    print(f"   ✅ {len(slides)} slides encontradas")
     return slides
 
 
@@ -134,8 +134,8 @@ def slide_role(num: int, total: int) -> str:
 
 
 def build_prompt(slide: Dict, role: str, marca: Dict, total: int, ancla: bool = False) -> str:
-    """Construye el prompt de imagen para una lamina.
-    total = numero de laminas; ancla = True cuando se adjunta la portada como referencia de estilo."""
+    """Construye el prompt de imagen para una slide.
+    total = numero de slides; ancla = True cuando se adjunta la portada como referencia de estilo."""
     colores = marca.get("colores", {})
     c_prim = colores.get("primario", "#111111")
     c_sec = colores.get("secundario", "#6F00FF")
@@ -150,11 +150,11 @@ def build_prompt(slide: Dict, role: str, marca: Dict, total: int, ancla: bool = 
     if ancla:
         ref = ("REFERENCIA DE ESTILO: la imagen adjunta es la PORTADA de este mismo carrusel. Copia EXACTAMENTE su\n"
                "sistema visual (paleta, tipografia, tratamiento grafico, texturas y estilo de composicion) para que\n"
-               "TODAS las laminas se vean como una serie coherente. NO copies su texto ni su contenido — solo el estilo.\n\n")
-    flecha = ('- En el borde derecho, una flecha "→" pequeña y discreta que invite a deslizar a la siguiente lamina.\n'
+               "TODAS las slides se vean como una serie coherente. NO copies su texto ni su contenido — solo el estilo.\n\n")
+    flecha = ('- En el borde derecho, una flecha "→" pequeña y discreta que invite a deslizar a la siguiente slide.\n'
               if num < total else "")
 
-    base = f"""{ref}Diseño de una lamina vertical para carrusel de Instagram (formato vertical, mas alto que ancho).
+    base = f"""{ref}Diseño de una slide vertical para carrusel de Instagram (formato vertical, mas alto que ancho).
 
 IDENTIDAD DE MARCA (respetala estrictamente):
 - Estilo visual: {estilo}
@@ -164,7 +164,7 @@ IDENTIDAD DE MARCA (respetala estrictamente):
 - IDIOMA (CRITICO): escribe el texto EXACTAMENTE como se te da, palabra por palabra, EN ESPAÑOL.
   NO lo traduzcas al ingles ni a otro idioma, NO lo parafrasees, NO cambies ni agregues palabras.
 - No escribas dentro de la imagen ninguna medida, dimension, proporcion, unidad ni etiqueta tecnica,
-  ni nombres internos de seccion; unicamente el mensaje real de la lamina.
+  ni nombres internos de seccion; unicamente el mensaje real de la slide.
 - ELEMENTO DE SERIE: un indicador pequeño y discreto "{num}/{total}" en una esquina inferior, en el color del texto, SIEMPRE en la misma posicion.
 {flecha}- SIN marcas de agua, SIN logos ajenos, SIN rostros de personas reales.
 
@@ -174,7 +174,7 @@ IDENTIDAD DE MARCA (respetala estrictamente):
     body = slide["content"]
 
     if role == "gancho":
-        return base + f"""ESTA ES LA PORTADA (LAMINA 1) — tiene que PARAR EL SCROLL.
+        return base + f"""ESTA ES LA PORTADA (SLIDE 1) — tiene que PARAR EL SCROLL.
 
 Titulo grande y contundente (es un gancho de dolor o de promesa, con un numero si lo hay):
 "{title}"
@@ -189,9 +189,9 @@ REQUISITOS:
 """
 
     if role == "valor":
-        return base + f"""LAMINA INTERMEDIA (contenido util).
+        return base + f"""SLIDE INTERMEDIA (contenido util).
 
-Titulo de la lamina:
+Titulo de la slide:
 "{title}"
 
 Contenido (respeta los bullets/pasos tal cual, texto legible):
@@ -204,7 +204,7 @@ REQUISITOS:
 """
 
     # cierre
-    return base + f"""ULTIMA LAMINA (cierre e invitacion a actuar).
+    return base + f"""ULTIMA SLIDE (cierre e invitacion a actuar).
 
 Mensaje de cierre (escribelo TAL CUAL, natural y cercano):
 "{body}"
@@ -216,7 +216,7 @@ REQUISITOS:
   El color acento protagonista es {c_sec}.
   Puede ser un bloque grande de {c_sec} o el fondo {c_fondo} con {c_sec} de acento fuerte.
 - Refuerza la accion con un elemento visual (una flecha hacia el usuario o un boton) sin saturar.
-- Al ser la ULTIMA lamina, NO incluyas la flecha de "deslizar →" en la esquina (ya no hay siguiente).
+- Al ser la ULTIMA slide, NO incluyas la flecha de "deslizar →" en la esquina (ya no hay siguiente).
 """
 
 
@@ -270,7 +270,7 @@ def poll_task(api_key: str, task_id: str, label: str = "") -> Optional[str]:
             print(f"   ⚠️  {label} error en polling: {e}")
             time.sleep(POLL_INTERVAL)
     print(f"   ⏱️  {label} sigue en cola en Kie AI (se agotó la espera local). La imagen puede "
-          f"terminar allá; vuelve a intentar esa lámina con --regenerar.")
+          f"terminar allá; vuelve a intentar esa slide con --regenerar.")
     return None
 
 
@@ -293,7 +293,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true",
                     help="Solo muestra el brief y los prompts, no genera imagenes (no gasta).")
     ap.add_argument("--regenerar", type=str, default=None,
-                    help="Regenera solo estas laminas, ej: '2,4'")
+                    help="Regenera solo estas slides, ej: '2,4'")
     args = ap.parse_args()
 
     bundle_path = Path(args.bundle).expanduser().resolve()
@@ -320,21 +320,21 @@ def main():
         validas = {s["number"] for s in slides}
         faltan = sorted(only - validas)
         if faltan:
-            print(f"❌ Estas láminas no existen en el carrusel: {faltan}. "
-                  f"El carrusel tiene {total} láminas (1 a {total}).")
+            print(f"❌ Estas slides no existen en el carrusel: {faltan}. "
+                  f"El carrusel tiene {total} slides (1 a {total}).")
             sys.exit(1)
 
     # Brief
     print(f"\n{'='*60}\nBRIEF\n{'='*60}")
-    print(f"Total laminas: {total} | Formato: 1080x1350 (4:5)\n")
+    print(f"Total slides: {total} | Formato: 1080x1350 (4:5)\n")
     for s in slides:
-        print(f"  Lamina {s['number']} [{slide_role(s['number'], total)}]: {s['title']}")
+        print(f"  Slide {s['number']} [{slide_role(s['number'], total)}]: {s['title']}")
 
     if args.dry_run:
         print(f"\n(dry-run) Prompts que se enviarian:\n")
         for s in slides:
             role = slide_role(s["number"], total)
-            print(f"\n--- Lamina {s['number']} ({role}) ---")
+            print(f"\n--- Slide {s['number']} ({role}) ---")
             print(build_prompt(s, role, marca, total, ancla=(role != "gancho"))[:600] + "...")
         print("\n(dry-run) No se genero nada. Quita --dry-run para generar.")
         return
@@ -348,7 +348,7 @@ def main():
     generated = []
     cover_num = 1 if any(s["number"] == 1 for s in slides) else slides[0]["number"]
 
-    # --- FASE 1: la PORTADA primero. Sera el molde de estilo de las demas laminas. ---
+    # --- FASE 1: la PORTADA primero. Sera el molde de estilo de las demas slides. ---
     cover_url = None
     regen_cover = (not only) or (cover_num in only)
     if regen_cover:
@@ -364,7 +364,7 @@ def main():
             print("   ⚠️  No se pudo generar la portada; las demas iran sin molde.")
             cover_url = None
     else:
-        # regenerando solo laminas internas: recuperar la URL de la portada del manifest
+        # regenerando solo slides internas: recuperar la URL de la portada del manifest
         if manifest_path.exists():
             try:
                 prev = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -372,7 +372,7 @@ def main():
             except Exception:
                 cover_url = None
 
-    # --- FASE 2: las demas laminas en paralelo, usando la portada como referencia de estilo. ---
+    # --- FASE 2: las demas slides en paralelo, usando la portada como referencia de estilo. ---
     rest = [s for s in slides if s["number"] != cover_num and (not only or s["number"] in only)]
     pending = {}
     for s in rest:
@@ -382,32 +382,32 @@ def main():
                           image_input=[cover_url] if cover_url else None)
         if tid:
             pending[n] = {"task_id": tid, "slide": s, "role": role}
-            print(f"   ✅ Lamina {n} enviada ({tid[:12]}...)")
+            print(f"   ✅ Slide {n} enviada ({tid[:12]}...)")
         else:
-            print(f"   ❌ Lamina {n} no se pudo enviar")
+            print(f"   ❌ Slide {n} no se pudo enviar")
 
     if pending:
-        print(f"\n{'='*60}\nFASE 2 — {len(pending)} laminas en paralelo{' (con molde de la portada)' if cover_url else ''}\n{'='*60}\n")
+        print(f"\n{'='*60}\nFASE 2 — {len(pending)} slides en paralelo{' (con molde de la portada)' if cover_url else ''}\n{'='*60}\n")
         with ThreadPoolExecutor(max_workers=len(pending)) as ex:
-            futures = {ex.submit(poll_task, api_key, info["task_id"], f"[Lamina {n}]"): n
+            futures = {ex.submit(poll_task, api_key, info["task_id"], f"[Slide {n}]"): n
                        for n, info in pending.items()}
             for fut in as_completed(futures):
                 n = futures[fut]
                 url = fut.result()
                 if not url:
-                    print(f"   ❌ Lamina {n} sin resultado")
+                    print(f"   ❌ Slide {n} sin resultado")
                     continue
                 if download(url, laminas_dir / f"lamina-{n:02d}.png"):
-                    print(f"   ✅ Lamina {n} -> lamina-{n:02d}.png")
+                    print(f"   ✅ Slide {n} -> lamina-{n:02d}.png")
                     info = pending[n]
                     generated.append({"id": n, "role": info["role"], "title": info["slide"]["title"],
                                       "file": f"lamina-{n:02d}.png", "url": url})
 
     if not generated:
-        print("\n❌ No se genero ninguna lamina. Revisa tu llave y tus creditos de Kie AI.")
+        print("\n❌ No se genero ninguna slide. Revisa tu llave y tus creditos de Kie AI.")
         sys.exit(1)
 
-    # Merge con manifest previo (para no perder laminas al regenerar solo algunas)
+    # Merge con manifest previo (para no perder slides al regenerar solo algunas)
     laminas_map = {}
     if manifest_path.exists():
         try:
@@ -430,7 +430,7 @@ def main():
 
     elapsed = int(time.time() - start)
     print(f"\n{'='*60}\nLISTO\n{'='*60}")
-    print(f"Laminas generadas ahora: {len(generated)}")
+    print(f"Slides generadas ahora: {len(generated)}")
     print(f"Carpeta: {laminas_dir}")
     print(f"Costo aprox: ~${len(generated) * 0.10:.2f} | Tiempo: {elapsed//60}m {elapsed%60}s")
     print(f"\nSiguiente paso: publicar con scripts/publicar.py\n")

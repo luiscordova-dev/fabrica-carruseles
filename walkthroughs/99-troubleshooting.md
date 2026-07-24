@@ -13,9 +13,9 @@ La llave es válida pero no hay saldo en Kie AI, o la llave está mal copiada. C
 (con $5 sobra) o vuelve a copiar la llave completa.
 
 **El texto de las imágenes sale con errores de ortografía o cortado**
-Los modelos de imagen a veces fallan el texto. Opciones: (1) regenera solo esa lámina con
-`--regenerar "N"`; (2) acorta el texto de esa lámina en `carrusel.md`; (3) sube el contraste
-en `marca.json`. Menos texto por lámina = mejor resultado.
+Los modelos de imagen a veces fallan el texto. Opciones: (1) regenera solo esa slide con
+`--regenerar "N"`; (2) acorta el texto de esa slide en `carrusel.md`; (3) sube el contraste
+en `marca.json`. Menos texto por slide = mejor resultado.
 
 **"ModuleNotFoundError: No module named 'requests'" (o 'dotenv')**
 Falta el entorno de la skill. Créalo/repáralo y corre los scripts con SU python:
