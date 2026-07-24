@@ -36,6 +36,9 @@ responda preguntas y apruebe. Tú haces lo técnico y tú propones; ella confirm
 
 ## Reglas de comunicación (importan)
 
+- **Vocabulario: di SIEMPRE "slide(s)", JAMÁS "lámina(s)".** En el chat, en los resúmenes y al reportar
+  lo que pasó ("6 slides detectadas", "tus 6 slides ya están listas"). Nunca digas "lámina". Los archivos,
+  la carpeta y el copy usan "slide"; tu forma de hablar también.
 - **Una pregunta a la vez.** No dispares listas largas ni tecnicismos. Espera la respuesta.
 - **El onboarding es corto pero completo** (negocio, tono, colores, estilo, IG). Hazlas una por una.
 - **Traduce todo a lenguaje simple.** La persona no tiene que saber qué es una API ni un JSON.
@@ -102,12 +105,24 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
 3. **¿Tus colores?** Ofrécele las dos vías tal cual: *"dime tus colores (o sus códigos), **o pásame
    una foto de tu logo/marca y yo te saco los colores**"*. Si manda una imagen, **míratela y extrae
    los hex** (primario, secundario/acento, fondo, texto) y confírmaselos.
-4. **¿Qué estilo visual quieres para las imágenes?** Ofrécele referencias: *"¿ya tienes carruseles o
-   posts con un estilo que te gusta? **Pásame una captura o la imagen** y lo replico. Si no, elige
-   uno: flat minimalista, acuarela/pintura, 3D, editorial, retro, neón…"*. Si manda referencias,
-   **descríbelas a detalle** (colores, formas, tipografía, textura, composición) y usa esa
-   descripción como `estilo_visual`.
-5. **¿Cuál es tu usuario de Instagram?** (ej. @sunegocio)
+4. **¿Qué estilo visual quieres para las imágenes?** Aquí SIEMPRE ofrece las referencias como paso
+   (no como tip escondido): *"¿tienes 1–3 carruseles que te gusten? **Pásame las capturas** y modelo su
+   **composición y estética** con tu marca"*. Pide **solo carruseles** (no "un post"). Si manda referencias,
+   **descríbelas a detalle** (colores, formas, tipografía, textura y sobre todo la **composición**: cómo
+   reparten título/subtítulo/bullets, la densidad, dónde va el footer) y usa esa descripción como
+   `estilo_visual`. Si NO tiene referencias, descríbele **2-3 direcciones estéticas en palabras** (ej.
+   flat minimalista, editorial cálido, retro/neón) y que elija una. **La composición la pone el sistema;
+   la estética —incluida la temperatura cálida/fría— la eliges tú:** la skill no impone "cálido" ni "frío".
+   La **anatomía default** de cada slide es fija y lean (eyebrow opcional → título con una palabra en color
+   de acento → subtítulo → un solo cuerpo: bullets *o* visual → número de serie abajo-derecha; ver
+   `reference/estructura-carrusel.md`). **No agregues números fantasma, barras, badges, cards ni stickers
+   por tu cuenta** — solo si la referencia los trae. Si una referencia usa un **badge** o una **barra de
+   progreso** como marca de serie, guárdalo en `marca.json` como `elemento_serie` (`"badge"` | `"barra"`;
+   default `"numero"`), y esa única convención se mantiene en toda la serie.
+5. **¿Cómo quieres tus slides de densidad?** *"¿las quieres **aireadas** (poco texto, mucho espacio) o
+   **completas** (tipo mini-guía, con más info por slide)?"* Guárdalo en `marca.json` como `densidad`
+   (`"aireada"` | `"completa"`; si no contesta, queda `"media"`).
+6. **¿Cuál es tu usuario de Instagram?** (ej. @sunegocio)
 
 Con eso, **propón** una **tipografía** legible que pegue con su estilo (que solo confirme). Muestra
 un resumen corto y pide confirmación:
@@ -117,12 +132,14 @@ un resumen corto y pide confirmación:
 > - Tono: […]
 > - Colores: […]
 > - Estilo visual: […]
+> - Densidad: […aireada/media/completa…]
 > - Instagram: […]
 > ¿Lo dejo así o ajustamos algo?
 
 Cuando confirme, **escribe `config/marca.json`** (usa `config/marca.example.json` como plantilla,
 campos: `negocio`, `tono`, `colores{primario,secundario,fondo,texto}`, `tipografia`, `estilo_visual`,
-`instagram_usuario`, `upload_post_user`). Hay un campo **opcional** `plataformas` (lista de redes por
+`densidad`, `instagram_usuario`, `upload_post_user`; opcional `elemento_serie` — `"numero"` (default) |
+`"badge"` | `"barra"`, solo si modelas una referencia con esa marca de serie). Hay un campo **opcional** `plataformas` (lista de redes por
 defecto donde publicar, ej. `["instagram", "tiktok"]`); si no lo pones, se publica solo en Instagram.
 La palabra de llamado a la acción **NO va aquí**: se decide por carrusel (Paso 3).
 
@@ -189,7 +206,7 @@ PY "$SK/scripts/generar.py" "$SK/outputs/<carpeta>"
 
 Necesita `KIE_API_KEY` en el `.env`. Cuesta ~$0.10 por slide; avísale el costo antes ("6 slides,
 ~$0.60"). El tiempo varía según la carga de Kie AI (de ~1 min a varios minutos) — **si tarda, no
-falló, está generando**; espera a que termine. Las imágenes quedan en `$SK/outputs/<carpeta>/laminas/`.
+falló, está generando**; espera a que termine. Las imágenes quedan en `$SK/outputs/<carpeta>/slides/`.
 
 ### Paso 6 — Revisar
 Muéstrale las slides. Si alguna no le gusta (texto cortado, color raro), regenera solo esa:

@@ -91,11 +91,20 @@ def load_marca() -> dict:
     return {}
 
 
-def find_laminas(bundle_path: Path) -> List[Path]:
-    """Busca las slides PNG ordenadas (laminas/lamina-01.png, ...)."""
-    laminas_dir = bundle_path / "laminas"
-    search_dir = laminas_dir if laminas_dir.exists() else bundle_path
-    fotos = sorted(search_dir.glob("lamina-*.png"))
+def find_slides(bundle_path: Path) -> List[Path]:
+    """Busca las slides PNG ordenadas (slides/slide-01.png, ...).
+    Retrocompat: si el output es viejo (laminas/lamina-01.png), tambien lo encuentra sin fallar."""
+    slides_dir = bundle_path / "slides"
+    legacy_dir = bundle_path / "laminas"
+    if slides_dir.exists():
+        search_dir = slides_dir
+    elif legacy_dir.exists():
+        search_dir = legacy_dir
+    else:
+        search_dir = bundle_path
+    fotos = sorted(search_dir.glob("slide-*.png"))
+    if not fotos:  # retrocompat: outputs generados antes del cambio de nombre
+        fotos = sorted(search_dir.glob("lamina-*.png"))
     if not fotos:
         fotos = sorted(search_dir.glob("*.png"))
     return fotos
@@ -112,7 +121,7 @@ def build_caption(args) -> str:
 
 def main():
     ap = argparse.ArgumentParser(description="Publica un carrusel en Instagram (Upload-Post).")
-    ap.add_argument("bundle", help="Carpeta del carrusel (con laminas/)")
+    ap.add_argument("bundle", help="Carpeta del carrusel (con slides/)")
     ap.add_argument("--caption", type=str, default=None, help="Texto del pie de foto (caption)")
     ap.add_argument("--caption-file", type=str, default=None, help="Archivo con el caption")
     ap.add_argument("--user", type=str, default=None,
@@ -129,7 +138,7 @@ def main():
     bundle_path = Path(args.bundle).expanduser().resolve()
     marca = load_marca()
 
-    fotos = find_laminas(bundle_path)
+    fotos = find_slides(bundle_path)
     if not fotos:
         print(f"❌ No encontre slides PNG en {bundle_path}. Genera el carrusel primero.")
         sys.exit(1)

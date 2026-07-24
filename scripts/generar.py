@@ -12,7 +12,8 @@ Uso:
     python3 generar.py <ruta-carpeta-bundle> --regenerar "2,4"
 
 La carpeta bundle debe contener un archivo "carrusel.md" con las slides.
-Las imagenes se guardan en <ruta-carpeta-bundle>/laminas/lamina-01.png, etc.
+Las imagenes se guardan en <ruta-carpeta-bundle>/slides/slide-01.png, etc.
+(Retrocompat: outputs viejos con laminas/lamina-01.png y clave "laminas" se siguen leyendo.)
 
 Requiere:
     - KIE_API_KEY (o KIE_AI_API_KEY) en el entorno o en el .env de la skill.
@@ -76,9 +77,40 @@ def load_marca() -> Dict:
             "tipografia": "sans-serif bold, limpia y moderna",
             "estilo_visual": "ilustracion flat minimalista, alto contraste, formas geometricas simples, sin texturas de acuarela",
             "instagram_usuario": "@tu_usuario",
+            "densidad": "media",
         }
     with open(MARCA_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+# --- Retrocompat de artefactos ---
+# La skill nombra las imagenes slide-NN.png dentro de slides/ y guarda la clave "slides"
+# en el manifest. Los outputs viejos usan lamina-NN.png dentro de laminas/ y clave "laminas";
+# estas ayudas los siguen leyendo sin fallar.
+def slides_dir_for(bundle_path: Path) -> Path:
+    """Carpeta de imagenes del bundle. Nueva: slides/. Si solo existe la vieja laminas/, la usa
+    para no romper --regenerar sobre outputs anteriores."""
+    new_dir = bundle_path / "slides"
+    legacy_dir = bundle_path / "laminas"
+    if new_dir.exists():
+        return new_dir
+    if legacy_dir.exists():
+        return legacy_dir
+    return new_dir
+
+
+def manifest_slides(data: Dict) -> List[Dict]:
+    """Lee la lista de slides de un manifest, aceptando la clave nueva 'slides' o la vieja 'laminas'."""
+    return data.get("slides") or data.get("laminas") or []
+
+
+DENSIDADES_VALIDAS = {"aireada", "media", "completa"}
+
+
+def densidad_de(marca: Dict) -> str:
+    """Densidad de contenido por slide (aireada|media|completa). Default 'media' si falta o es invalida."""
+    d = str(marca.get("densidad", "media")).strip().lower()
+    return d if d in DENSIDADES_VALIDAS else "media"
 
 
 def parse_carrusel(bundle_path: Path) -> Optional[List[Dict]]:
@@ -133,6 +165,64 @@ def slide_role(num: int, total: int) -> str:
     return "valor"
 
 
+ELEMENTOS_SERIE_VALIDOS = {"numero", "badge", "barra"}
+
+
+def elemento_serie_de(marca: Dict) -> str:
+    """Convencion de serie elegida por el usuario (modelada de sus referencias).
+    Default 'numero' (n/total discreto abajo-derecha) si falta o es invalida.
+    UNA sola convencion por carrusel, con posicion fija e identica en todas las slides."""
+    e = str(marca.get("elemento_serie", "numero")).strip().lower()
+    return e if e in ELEMENTOS_SERIE_VALIDOS else "numero"
+
+
+def numero_serie_instr(num: int, total: int, elemento: str = "numero") -> str:
+    """Instruccion del UNICO elemento de serie del carrusel. El texto es IDENTICO en todas las
+    slides (solo cambia el valor n/total) para minimizar la variacion entre imagenes: misma
+    posicion, mismo tamano, mismo tratamiento en toda la serie. El DEFAULT es el numero discreto
+    abajo-derecha; 'badge' y 'barra' son convenciones alternativas que el usuario puede elegir/modelar
+    de sus referencias (una sola por carrusel, siempre en la misma posicion)."""
+    if elemento == "badge":
+        return (f'ELEMENTO DE SERIE: coloca el numero "{num}/{total}" dentro de una pastilla/badge pequena en la '
+                f'ESQUINA SUPERIOR DERECHA, con el MISMO estilo de pastilla, tipografia y color en toda la serie, '
+                f'en identica posicion y tamano en cada slide.')
+    if elemento == "barra":
+        return (f'ELEMENTO DE SERIE: en el FOOTER, una barra de progreso horizontal con el numero "{num}/{total}" '
+                f'al lado, con el MISMO estilo, grosor, tipografia y color en toda la serie, en identica posicion '
+                f'en cada slide (la barra refleja el avance {num} de {total}).')
+    return (f'ELEMENTO DE SERIE: coloca el numero "{num}/{total}" en la ESQUINA INFERIOR DERECHA, '
+            f'pequeno y discreto, con la MISMA tipografia y el MISMO color del texto en toda la serie, '
+            f'en identica posicion y tamano en cada slide.')
+
+
+def extras_prohibidos(elemento_serie: str) -> str:
+    """Prohibe los recursos que NO son parte de la anatomia default (mas elementos = mas deriva de
+    posicion y mas typos). Solo entran cuando el usuario los trae en sus referencias; la skill nunca
+    los agrega sola. Se omite de la lista el que sea la convencion de serie elegida, para no contradecirla."""
+    extras = ["numeros fantasma", "barras de progreso", "badges o pastillas",
+              "tarjetas comparativas", "stickers o washi tape", "footer de swipe"]
+    if elemento_serie == "badge":
+        extras.remove("badges o pastillas")
+    elif elemento_serie == "barra":
+        extras.remove("barras de progreso")
+    return ("NO agregues por tu cuenta " + ", ".join(extras) +
+            ": no son parte de la anatomia default (solo entran si el usuario los trae en sus referencias).")
+
+
+def anatomia_valor(densidad: str) -> str:
+    """Cuantos bullets lleva el cuerpo (opcion a) de una slide de valor, segun la densidad elegida.
+    La densidad regula CUANTA info por slide; la estetica la pone la marca, no esta funcion.
+    El presupuesto total (~30 palabras, max 5 elementos) manda sobre la densidad."""
+    if densidad == "aireada":
+        return ("- Densidad AIREADA: 1-2 bullets muy cortos (o el visual protagonista con 0-1 bullet). "
+                "Mucho aire, una sola idea respirando.")
+    if densidad == "completa":
+        return ("- Densidad COMPLETA: hasta 3 bullets cortos con marcador de punto (keywords en negrita). "
+                "Se ve llena y ordenada, siempre dentro del presupuesto de texto.")
+    return ("- Densidad MEDIA: 2-3 bullets cortos con marcador de punto (keywords en negrita). "
+            "Equilibrio entre informacion y aire, siempre escaneable.")
+
+
 def build_prompt(slide: Dict, role: str, marca: Dict, total: int, ancla: bool = False) -> str:
     """Construye el prompt de imagen para una slide.
     total = numero de slides; ancla = True cuando se adjunta la portada como referencia de estilo."""
@@ -144,6 +234,8 @@ def build_prompt(slide: Dict, role: str, marca: Dict, total: int, ancla: bool = 
     tipografia = marca.get("tipografia", "sans-serif bold, limpia y moderna")
     estilo = marca.get("estilo_visual", "ilustracion flat minimalista, alto contraste")
     handle = marca.get("instagram_usuario", "@tu_usuario")
+    densidad = densidad_de(marca)
+    elemento_serie = elemento_serie_de(marca)
     num = slide["number"]
 
     ref = ""
@@ -151,22 +243,30 @@ def build_prompt(slide: Dict, role: str, marca: Dict, total: int, ancla: bool = 
         ref = ("REFERENCIA DE ESTILO: la imagen adjunta es la PORTADA de este mismo carrusel. Copia EXACTAMENTE su\n"
                "sistema visual (paleta, tipografia, tratamiento grafico, texturas y estilo de composicion) para que\n"
                "TODAS las slides se vean como una serie coherente. NO copies su texto ni su contenido — solo el estilo.\n\n")
-    flecha = ('- En el borde derecho, una flecha "→" pequeña y discreta que invite a deslizar a la siguiente slide.\n'
-              if num < total else "")
 
+    # Bloque de COMPOSICION comun a toda la serie. La composicion (jerarquia, densidad con orden,
+    # footer integrado, elemento que guia el ojo) la define el sistema. La ESTETICA — incluida la
+    # temperatura calida/fria — viene SOLO del estilo_visual de la marca: aqui no se impone ninguna.
     base = f"""{ref}Diseño de una slide vertical para carrusel de Instagram (formato vertical, mas alto que ancho).
 
 IDENTIDAD DE MARCA (respetala estrictamente):
 - Estilo visual: {estilo}
 - Paleta: primario {c_prim}, acento {c_sec}, fondo {c_fondo}, texto {c_texto}.
-- Tipografia: {tipografia.rstrip('.')}. El texto debe leerse PERFECTAMENTE, bien escrito, sin faltas de ortografia, GRANDE y con alto contraste.
-- Texto CORTO y grande: mejor pocas palabras enormes que un parrafo. Composicion limpia, con aire, moderna.
+- Tipografia: {tipografia.rstrip('.')}. El texto debe leerse PERFECTAMENTE, bien escrito, sin faltas de ortografia, y con alto contraste.
 - IDIOMA (CRITICO): escribe el texto EXACTAMENTE como se te da, palabra por palabra, EN ESPAÑOL.
   NO lo traduzcas al ingles ni a otro idioma, NO lo parafrasees, NO cambies ni agregues palabras.
 - No escribas dentro de la imagen ninguna medida, dimension, proporcion, unidad ni etiqueta tecnica,
   ni nombres internos de seccion; unicamente el mensaje real de la slide.
-- ELEMENTO DE SERIE: un indicador pequeño y discreto "{num}/{total}" en una esquina inferior, en el color del texto, SIEMPRE en la misma posicion.
-{flecha}- SIN marcas de agua, SIN logos ajenos, SIN rostros de personas reales.
+- SIN marcas de agua, SIN logos ajenos, SIN rostros de personas reales.
+
+ANATOMIA FIJA DE LA SERIE (maximo 5 elementos por slide, ~30 palabras en total — equilibrio, no espectaculo):
+- Jerarquia tipografica clara, con tamanos MUY distintos entre niveles (eyebrow > titulo > subtitulo > cuerpo).
+- EYEBROW (opcional): una etiqueta corta de 1-3 palabras arriba (ej. "PASO 2", "EL ERROR #1") que da contexto antes del titulo. Usala solo si aporta.
+- Densidad CON orden: elementos alineados a una reticula, con aire; nunca texto flotando en el vacio ni amontonado. Se ve llena y ordenada, sin saturar.
+- Presupuesto de texto ESTRICTO: titulo <=8 palabras, subtitulo <=10 palabras, bullets <=7 palabras. Cero parrafos. Mas texto y mas elementos = mas deriva de posicion y mas errores al renderizar.
+- {extras_prohibidos(elemento_serie)}
+- Footer integrado como parte del diseño, no elementos sueltos flotando.
+- {numero_serie_instr(num, total, elemento_serie)}
 
 """
 
@@ -176,20 +276,21 @@ IDENTIDAD DE MARCA (respetala estrictamente):
     if role == "gancho":
         return base + f"""ESTA ES LA PORTADA (SLIDE 1) — tiene que PARAR EL SCROLL.
 
-Titulo grande y contundente (es un gancho de dolor o de promesa, con un numero si lo hay):
+Gancho grande y contundente (dolor o promesa, con un numero si lo hay):
 "{title}"
 
-Texto de apoyo:
+Subtitulo de apoyo:
 "{body}"
 
 REQUISITOS:
-- El titulo es el protagonista visual: el mayor peso tipografico del estilo de la marca, muy grande.
-- Un elemento grafico simple y potente que refuerce la idea, en el estilo visual de la marca, con el color acento {c_sec}.
-- Fondo {c_fondo}. Maximo impacto y contraste. Que de curiosidad por deslizar.
+- Anatomia de portada: gancho GRANDE (protagonista visual, el mayor peso tipografico) + subtitulo + un elemento protagonista.
+- Resalta UNA palabra clave del gancho con el color de acento {c_sec} (coloreada o subrayada), con la MISMA convencion en toda la serie.
+- El elemento protagonista refuerza la idea, en el estilo visual de la marca, con el color acento {c_sec}.
+- Fondo {c_fondo}. Maximo impacto y contraste. Que invite a seguir viendo el carrusel.
 """
 
     if role == "valor":
-        return base + f"""SLIDE INTERMEDIA (contenido util).
+        return base + f"""SLIDE INTERMEDIA (contenido util) — anatomia de slide de valor.
 
 Titulo de la slide:
 "{title}"
@@ -198,25 +299,26 @@ Contenido (respeta los bullets/pasos tal cual, texto legible):
 "{body}"
 
 REQUISITOS:
-- Jerarquia clara: titulo arriba, contenido en bullets o pasos, muy escaneable.
-- Un grafico conceptual simple que acompañe la idea (no que decore de mas).
+- Anatomia: (eyebrow opcional) + titulo + subtitulo de apoyo + CUERPO + serie. Jerarquia clara de arriba a abajo.
+- Resalta UNA palabra clave del titulo con el color de acento {c_sec} (coloreada o subrayada), con la MISMA convencion en toda la serie.
+- El CUERPO es UNA sola decision, nunca las dos compitiendo: (a) bullets escaneables, o (b) un visual protagonista.
+{anatomia_valor(densidad)}
 - Fondo limpio {c_fondo}, acentos en {c_sec}. Consistente con la portada.
 """
 
     # cierre
-    return base + f"""ULTIMA SLIDE (cierre e invitacion a actuar).
+    return base + f"""ULTIMA SLIDE (cierre e invitacion a actuar) — anatomia de cierre: CTA + @usuario.
 
 Mensaje de cierre (escribelo TAL CUAL, natural y cercano):
 "{body}"
 
 REQUISITOS:
 - Debe sentirse como una invitacion entre personas, no como un anuncio.
-- Incluye de forma clara y destacada el usuario: "{handle}".
+- Incluye de forma clara y destacada el usuario: "{handle}", integrado en el footer del diseño.
 - COHERENCIA DE MARCA (critico): usa EXACTAMENTE la misma paleta del resto del carrusel.
   El color acento protagonista es {c_sec}.
   Puede ser un bloque grande de {c_sec} o el fondo {c_fondo} con {c_sec} de acento fuerte.
-- Refuerza la accion con un elemento visual (una flecha hacia el usuario o un boton) sin saturar.
-- Al ser la ULTIMA slide, NO incluyas la flecha de "deslizar →" en la esquina (ya no hay siguiente).
+- Un CTA claro y destacado (el llamado a la accion del mensaje), sin saturar.
 """
 
 
@@ -330,20 +432,22 @@ def main():
     for s in slides:
         print(f"  Slide {s['number']} [{slide_role(s['number'], total)}]: {s['title']}")
 
+    print(f"Densidad de contenido: {densidad_de(marca)}")
+
     if args.dry_run:
-        print(f"\n(dry-run) Prompts que se enviarian:\n")
+        print(f"\n(dry-run) Prompts completos que se enviarian:\n")
         for s in slides:
             role = slide_role(s["number"], total)
             print(f"\n--- Slide {s['number']} ({role}) ---")
-            print(build_prompt(s, role, marca, total, ancla=(role != "gancho"))[:600] + "...")
+            print(build_prompt(s, role, marca, total, ancla=(role != "gancho")))
         print("\n(dry-run) No se genero nada. Quita --dry-run para generar.")
         return
 
     api_key = get_api_key()
-    laminas_dir = bundle_path / "laminas"
-    laminas_dir.mkdir(exist_ok=True)
+    slides_dir = slides_dir_for(bundle_path)
+    slides_dir.mkdir(exist_ok=True)
 
-    manifest_path = laminas_dir / "manifest.json"
+    manifest_path = slides_dir / "manifest.json"
     start = time.time()
     generated = []
     cover_num = 1 if any(s["number"] == 1 for s in slides) else slides[0]["number"]
@@ -356,10 +460,10 @@ def main():
         cs = next(s for s in slides if s["number"] == cover_num)
         tid = create_task(api_key, build_prompt(cs, slide_role(cover_num, total), marca, total))
         cover_url = poll_task(api_key, tid, "[Portada]") if tid else None
-        if cover_url and download(cover_url, laminas_dir / f"lamina-{cover_num:02d}.png"):
-            print(f"   ✅ Portada -> lamina-{cover_num:02d}.png")
+        if cover_url and download(cover_url, slides_dir / f"slide-{cover_num:02d}.png"):
+            print(f"   ✅ Portada -> slide-{cover_num:02d}.png")
             generated.append({"id": cover_num, "role": "gancho", "title": cs["title"],
-                              "file": f"lamina-{cover_num:02d}.png", "url": cover_url})
+                              "file": f"slide-{cover_num:02d}.png", "url": cover_url})
         else:
             print("   ⚠️  No se pudo generar la portada; las demas iran sin molde.")
             cover_url = None
@@ -368,7 +472,7 @@ def main():
         if manifest_path.exists():
             try:
                 prev = json.loads(manifest_path.read_text(encoding="utf-8"))
-                cover_url = next((l.get("url") for l in prev.get("laminas", []) if l.get("id") == cover_num), None)
+                cover_url = next((l.get("url") for l in manifest_slides(prev) if l.get("id") == cover_num), None)
             except Exception:
                 cover_url = None
 
@@ -397,41 +501,42 @@ def main():
                 if not url:
                     print(f"   ❌ Slide {n} sin resultado")
                     continue
-                if download(url, laminas_dir / f"lamina-{n:02d}.png"):
-                    print(f"   ✅ Slide {n} -> lamina-{n:02d}.png")
+                if download(url, slides_dir / f"slide-{n:02d}.png"):
+                    print(f"   ✅ Slide {n} -> slide-{n:02d}.png")
                     info = pending[n]
                     generated.append({"id": n, "role": info["role"], "title": info["slide"]["title"],
-                                      "file": f"lamina-{n:02d}.png", "url": url})
+                                      "file": f"slide-{n:02d}.png", "url": url})
 
     if not generated:
         print("\n❌ No se genero ninguna slide. Revisa tu llave y tus creditos de Kie AI.")
         sys.exit(1)
 
-    # Merge con manifest previo (para no perder slides al regenerar solo algunas)
-    laminas_map = {}
+    # Merge con manifest previo (para no perder slides al regenerar solo algunas).
+    # Lee la clave nueva "slides" o la vieja "laminas" (retrocompat).
+    slides_map = {}
     if manifest_path.exists():
         try:
-            for l in json.loads(manifest_path.read_text(encoding="utf-8")).get("laminas", []):
-                laminas_map[l["id"]] = l
+            for l in manifest_slides(json.loads(manifest_path.read_text(encoding="utf-8"))):
+                slides_map[l["id"]] = l
         except Exception:
             pass
     for l in generated:
-        laminas_map[l["id"]] = l
-    laminas_all = [laminas_map[k] for k in sorted(laminas_map)]
+        slides_map[l["id"]] = l
+    slides_all = [slides_map[k] for k in sorted(slides_map)]
 
     manifest = {
         "generado": datetime.now().isoformat(timespec="seconds"),
         "negocio": marca.get("negocio"),
         "instagram_usuario": marca.get("instagram_usuario"),
-        "total": len(laminas_all),
-        "laminas": laminas_all,
+        "total": len(slides_all),
+        "slides": slides_all,
     }
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
     elapsed = int(time.time() - start)
     print(f"\n{'='*60}\nLISTO\n{'='*60}")
     print(f"Slides generadas ahora: {len(generated)}")
-    print(f"Carpeta: {laminas_dir}")
+    print(f"Carpeta: {slides_dir}")
     print(f"Costo aprox: ~${len(generated) * 0.10:.2f} | Tiempo: {elapsed//60}m {elapsed%60}s")
     print(f"\nSiguiente paso: publicar con scripts/publicar.py\n")
 

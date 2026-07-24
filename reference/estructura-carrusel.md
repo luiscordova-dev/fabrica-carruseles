@@ -73,6 +73,52 @@ con los "sabores" que la gente quiere: **rápido, fácil, sin riesgo, barato** (
 
 ---
 
+## PARTE A2 — Anatomía visual de cada slide (composición)
+
+Esto define **cómo se ve** cada slide (la composición), no qué dice (eso es la PARTE A). El sistema
+la aplica automáticamente al generar; aquí queda para que la entiendas y escribas el copy que la llena.
+
+> **Principio rector: la COMPOSICIÓN es del sistema; la ESTÉTICA es 100% del usuario.**
+> La skill impone jerarquía, densidad con orden y footer integrado — pero **no impone temperatura**
+> (cálido/frío) ni ningún atributo estético: eso sale del `estilo_visual` de la marca o de las
+> referencias que el usuario pase. "Composición rica" no significa "cálido"; significa **jerarquía
+> completa y orden**, en la estética que el usuario eligió.
+
+### Anatomía DEFAULT (fija) — máximo 5 elementos por slide, ~30 palabras en total
+1. **EYEBROW** (opcional): etiqueta de 1–3 palabras arriba (ej. "PASO 2", "EL ERROR #1"). Da contexto antes del título. Solo si aporta.
+2. **TÍTULO** grande (≤8 palabras), con **UNA palabra clave en el color de acento** de la marca (subrayada o coloreada — elige una convención por serie y mantenla).
+3. **SUBTÍTULO** de apoyo: 1 línea, ≤10 palabras.
+4. **CUERPO** — UNA sola decisión por slide: **(a)** 2–3 bullets con marcador de punto de color (≤7 palabras cada uno, keywords en negrita); **o (b)** un visual protagonista (foto/ilustración). Si hay visual protagonista, máximo 1 bullet o ninguno. **NUNCA** bullets largos + visual grande compitiendo.
+5. **SERIE**: el número **`n/total`** discreto, en la **esquina inferior derecha**, con instrucción idéntica en todas las slides. **@usuario solo en portada y cierre.**
+
+**Portada (slide 1):** gancho grande + subtítulo + un elemento protagonista.
+**Cierre (última):** CTA + @usuario integrado en el footer.
+
+**No hay flecha de "deslizar →"**: se quitó porque salía inconsistente y ensuciaba la composición.
+
+### Densidad (campo `densidad` de la marca)
+Regula solo **cuántos bullets** entran en el cuerpo (opción a); la anatomía no cambia:
+- **`aireada`** — 1–2 bullets (o el visual con 0–1 bullet). Mucho aire.
+- **`media`** (default) — 2–3 bullets.
+- **`completa`** — hasta 3 bullets, lleno pero ordenado y dentro del presupuesto.
+
+### Por qué esta anatomía (y no más elementos)
+**Más elementos = más deriva de posición y más typos renderizados.** La jerarquía
+(eyebrow → título con acento → subtítulo → cuerpo único → serie fija) ya da la sensación **"llena y
+ordenada"** sin inflar el riesgo. **Equilibrio > espectáculo.** El presupuesto de texto (~30 palabras,
+máx 5 elementos) manda por encima de cualquier ganas de agregar.
+
+### Fuera del default — solo al MODELAR referencias
+Número fantasma (numeral gigante translúcido), barra de progreso, badges/pastillas, tarjetas
+comparativas, stickers/washi/doodles y footer de swipe **no** son parte de la anatomía default. Se usan
+**únicamente** cuando el usuario pasa capturas de carruseles que los traen — y aun entonces manteniendo
+**UNA sola convención por serie**, posición fija y el mismo presupuesto de texto. **La skill JAMÁS los
+agrega por iniciativa propia.** Si una referencia usa un **badge** o una **barra** como marca de serie,
+se modela con el campo `elemento_serie` (`"badge"` | `"barra"`; default `"numero"`), y esa única
+convención se mantiene idéntica en todas las slides.
+
+---
+
 ## PARTE B — El caption (pie de foto) con estrategia
 
 El caption no resume el carrusel: dispara la acción y alimenta la entrega automática.
