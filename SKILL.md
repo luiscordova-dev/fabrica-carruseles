@@ -136,7 +136,7 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
    | Variable | CAMINO A — CON referencias | CAMINO B — SIN referencias |
    |---|---|---|
    | Petición | UN carrusel COMPLETO (todas las slides) + opcional 1–2 sueltas | — |
-   | Guardado | archivos en `config/referencias/` + `ls` + confirmación + candado pre-gen | — |
+   | Guardado | **NADA de archivos** — Claude LEE las capturas del chat (visión) y extrae su estilo a `marca.json` | — |
    | densidad · tipografía · tratamiento · `elemento_serie` | **INFERIDOS** de las refs → **sobrescriben** `marca.json` → confirmar en 1 línea (**NO se preguntan**) | se **preguntan** (3 preguntas, una a la vez) |
    | Molde | **ON** (la portada MODELA las refs → luego ancla al resto) → cohesión fuerte | **ON** (portada ancla, solo tokens de estilo) |
    | Serie / footer | siguen el **patrón de las refs** (1 convención idéntica) | default **número abajo-derecha** clavado |
@@ -151,19 +151,16 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
    motivador breve; 9) refs nuevas después → reemplaza/suma → re-inferir → confirmar; "con/sin molde" manual → obedecer.
 
    #### CAMINO A — CON referencias (MODELAR)  ·  *referencias > defaults*
-   1. **GUARDA las capturas como ARCHIVOS — paso OBLIGATORIO Y VERIFICADO** (el bug real: las refs quedaron solo en
-      el chat, `config/referencias/` **vacía** → se generó SIN refs "diciendo" que las usaba):
-      - Las imágenes llegan como **rutas de archivo** en la conversación. **Cópialas físicamente** con `cp` a
-        `config/referencias/` de la skill: `ref-01.png`, `ref-02.png`… **en el orden que el usuario las mande**
-        (ref-01 = su portada, ref-02 = la siguiente…; **máx 7**, jpeg/png/webp).
-      - **VERIFICA con `ls`** que los archivos existen y **CONFÍRMASELO**: *"✓ Guardé tus N referencias — las voy a
-        usar de guía visual en cada generación."*
+   1. **LEE las capturas directo del chat (visión) — NUNCA archivos, NUNCA carpetas, NUNCA arrastrar.** Las imágenes
+      que la persona pega en Claude Code **no se pueden guardar como archivo** (solo las VES). Así que **míralas y
+      extrae su estilo tú mismo** — jamás le pidas guardarlas, crear una carpeta ni arrastrar nada. Tú te encargas de
+      todo con solo verlas en el chat.
+      - **Órdenalas** como te las pasó (la 1ª = su portada, la última = su cierre) para modelar ROL→ROL.
       - **IDIOMA de la referencia:** si una referencia trae texto en **otro idioma** (inglés, etc.), avisa de una:
         *"Ojo: esta referencia está en inglés — la uso solo de **estilo**; el texto de tus slides sale **en español**."*
         (De todos modos el motor lo fuerza y el checklist de auto-verificación lo caza; esto solo pone expectativa.)
-      - **CANDADO PRE-GENERACIÓN:** antes de generar, si el usuario pasó referencias en el chat pero
-        `config/referencias/` está **vacía** → **DETENTE**, guárdalas primero (o pídelas de nuevo si no localizas las
-        rutas). **PROHIBIDO** generar "diciendo" que usas referencias sin los archivos presentes.
+      - **NUNCA le pidas manejar archivos.** El "modelado" pasa porque TÚ ves las capturas y las traduces a estilo en
+        `marca.json`; no dependes de ningún archivo de imagen guardado.
    2. **INFIERE de las referencias — la inferencia MANDA** (con referencias **NO preguntas** densidad, tipografía ni
       tratamiento; los infieres): la **densidad** (¿mini-guía densa o aireada?), el **tratamiento visual**
       (foto / ilustración / gráficos), la **tipografía**, el **`elemento_serie`** (número abajo, badge arriba, barra,
@@ -172,12 +169,12 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
    3. **ACTUALIZA `marca.json` con esos valores, SOBRESCRIBIENDO los viejos.** Los valores de un onboarding anterior
       **NO sobreviven** si las referencias dicen otra cosa y el usuario confirma. **CONFIRMA en UNA sola línea**:
       *"Veo: mini-guía densa, letra manuscrita, gráficos con doodles, número de serie abajo — ¿así?"* → ajusta lo que corrija.
-   4. **`molde` queda en `"auto"` → ON** (la portada **ancla** la serie también con referencias): la portada primero
-      **modela** tus referencias y luego se vuelve el **ADN visual** de las otras slides, que la heredan. Así el estilo
-      NO deriva slide por slide (el bug real con 1 sola referencia débil). El prompt **modela ROL→ROL** (su portada→nuestra
-      portada, sus slides de valor→las nuestras, su cierre→el nuestro) y sigue la **convención de serie/footer de las
-      referencias** (UNA sola, idéntica en toda la serie). Esto lo aplica solo `generar.py` (genera la portada primero,
-      luego el resto en paralelo con la portada de ancla) — tú solo guarda las refs e infiérelas bien.
+   4. **`molde` queda en `"auto"` → ON** (la portada **ancla** la serie): la portada se genera primero **desde tu
+      `marca.json`** (que ya capturó el estilo de tus referencias) y luego se vuelve el **ADN visual** de las otras
+      slides, que lo heredan. Así el estilo NO deriva slide por slide. El prompt **modela ROL→ROL** (portada→portada,
+      valor→valor, cierre→cierre) con la **convención de serie/footer que infieriste** de las referencias (UNA sola,
+      idéntica en toda la serie). Esto lo aplica `generar.py` (genera la portada primero, luego el resto en paralelo
+      con la portada de ancla) — tú solo **infiere bien el estilo** a `marca.json`.
 
    #### CAMINO B — SIN referencias (CREAR TU ESTILO, una pregunta a la vez, NUNCA en bloque)
    1. *"¿Qué tipo de imágenes van con tu marca? a) **Fotografía realista** b) **Ilustración/caricatura**
@@ -193,9 +190,8 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
 
    #### AMBOS caminos terminan IGUAL
    Resumen del estilo en 2–3 líneas → **OK del usuario** → `marca.json` completo → continúa el flujo normal.
-   En cualquier carrusel **FUTURO**, si trae referencias nuevas: pregunta si **reemplazan o se suman**, guárdalas
-   (paso verificado de arriba), **re-infiere y sobrescribe** `marca.json`, y confirma en una línea. Se guardan una vez
-   y `generar.py` las sube frescas a Kie en cada corrida (URLs ~24h).
+   En cualquier carrusel **FUTURO**, si trae referencias nuevas: **léelas del chat**, pregunta si **reemplazan o se
+   suman** al estilo actual, **re-infiere y sobrescribe** `marca.json`, y confirma en una línea.
 
    **Candados que aplican siempre** (en cualquiera de los dos caminos):
    - **Modelar ≠ copiar:** *"tus referencias me enseñan el **CÓMO VISUAL** está compuesto — el diseño sale **100% de TU
@@ -311,10 +307,9 @@ Reglas al escribir (críticas — el test real falló aquí):
 - **Muéstrale el copy y pide su OK** (o ajusta) antes de generar. El copy es lo más importante.
 
 ### Paso 5 — Generar las imágenes
-**CANDADO PRE-GENERACIÓN (obligatorio):** si el usuario pasó referencias en el chat, confirma con `ls` que
-`config/referencias/` **no está vacía** antes de generar. Si está vacía, **DETENTE** y guárdalas primero — nunca
-generes "diciendo" que usas referencias sin los archivos. (Sin `marca.json`, `generar.py` **aborta** con un aviso
-para correr el onboarding: no genera con datos de ejemplo.)
+**CANDADO PRE-GENERACIÓN (obligatorio):** genera **solo con `marca.json` ya configurado**. Sin `marca.json`,
+`generar.py` **aborta** con un aviso para correr el onboarding — no genera con datos de ejemplo. (Las referencias
+que la persona pegó ya viven en tu `marca.json` como estilo; no dependes de ningún archivo de imagen.)
 
 **Corre SIEMPRE primero `--dry-run`** (no gasta) y **lee sus avisos** — te marca si el copy quedó corto para densidad
 `completa` y si falta tu @ de Instagram. Luego genera (recuerda: `PY` es el Python del venv):
