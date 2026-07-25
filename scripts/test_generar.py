@@ -12,6 +12,7 @@ Cubre lo critico que ya nos ha mordido:
 - El @ real va SOLO en portada y cierre, nunca en las slides de valor.
 """
 import os
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -115,6 +116,68 @@ class TestCandados(unittest.TestCase):
         p = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, n_refs=2, sin_molde=True)
         self.assertIn("NUNCA inventes ni copies un @usuario", p)
         self.assertIn("@usuario/handle/URL", p)
+
+    def test_candado_idioma_incluye_refs_en_ingles(self):
+        """Regen real: la portada salio en INGLES modelando la portada inglesa de la ref. El candado
+        de idioma ahora dice explicitamente que aunque la ref (incluida su portada) este en ingles,
+        el texto va en español."""
+        p = g.build_prompt(SLIDES[0], "gancho", MARCA, TOTAL, n_refs=2, sin_molde=True)
+        self.assertIn("INGLES", p)
+        self.assertIn("PORTADA", p)
+
+    def test_veta_interfaz_instagram_de_las_refs(self):
+        """Con refs (capturas de IG), el prompt prohibe dibujar la interfaz de Instagram (avatares,
+        flechas de navegacion, iconos de like/comentar, anillos de historia) que trae el screenshot
+        (bug real: una slide replico esos elementos de UI)."""
+        p = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, n_refs=2, sin_molde=True)
+        self.assertIn("INTERFAZ de Instagram", p)
+        self.assertIn("NUNCA los dibujes", p)
+        # Sin refs, ese veto no aplica (no hay capturas adjuntas).
+        p_sin = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, n_refs=0, sin_molde=True)
+        self.assertNotIn("INTERFAZ de Instagram", p_sin)
+
+
+def _sin_numero(instr: str) -> str:
+    """Normaliza la instruccion del marcador quitando el valor 'n/total' (lo UNICO que puede cambiar
+    entre slides), para poder comparar byte-a-byte el resto del texto."""
+    return re.sub(r"\d+/\d+", "N/N", instr)
+
+
+class TestMarcadorSerieConsistente(unittest.TestCase):
+    """El fix de hoy: con referencias, el marcador de serie es UNA convencion FIJA, byte-identica
+    en todas las slides salvo el numero. Antes derivaba (ovalo arriba / pastilla abajo / engrane)."""
+
+    def test_marcador_byte_identico_entre_slides_con_refs(self):
+        instrs = [g.numero_serie_instr(n, TOTAL, "numero", hay_refs=True) for n in range(1, TOTAL + 1)]
+        normalizadas = {_sin_numero(i) for i in instrs}
+        self.assertEqual(len(normalizadas), 1,
+                         "el marcador NO es byte-identico entre slides (salvo el numero) con refs")
+        # Y el numero SI cambia (no quedo estatico por error).
+        self.assertIn("1/6", instrs[0])
+        self.assertIn("6/6", instrs[-1])
+
+    def test_marcador_es_ancla_fija_con_reglas_explicitas(self):
+        instr = g.numero_serie_instr(3, TOTAL, "numero", hay_refs=True)
+        self.assertIn("ancla visual", instr)
+        self.assertIn("NO cambia de forma ni de lugar", instr)
+        self.assertIn("ESQUINA SUPERIOR DERECHA", instr)
+        # Veta explicitamente las formas en que derivaba (ovalo, pastilla/badge, engrane).
+        for forma in ("ovalo", "pastilla", "badge", "engrane"):
+            self.assertIn(forma, instr, f"deberia vetar encerrar el marcador en {forma}")
+
+    def test_marcador_byte_identico_dentro_del_prompt_completo(self):
+        """End-to-end: la instruccion del marcador aparece byte-identica (salvo el numero) dentro del
+        prompt COMPLETO de las 6 slides, en la config real (con refs, sin molde)."""
+        prompts = []
+        for n in range(1, TOTAL + 1):
+            slide = {"number": n, "title": f"Titulo {n}", "content": "Bullet uno.\nBullet dos.\nBullet tres."}
+            role = g.slide_role(n, TOTAL)
+            prompts.append(g.build_prompt(slide, role, MARCA, TOTAL, n_refs=2, sin_molde=True))
+        marcadores = [_sin_numero(g.numero_serie_instr(n, TOTAL, "numero", hay_refs=True)).split("N/N")[0]
+                      for n in range(1, TOTAL + 1)]
+        # La cabecera del marcador (antes del primer numero) debe aparecer literal en cada prompt.
+        for p, cab in zip(prompts, marcadores):
+            self.assertIn(cab, p)
 
 
 if __name__ == "__main__":

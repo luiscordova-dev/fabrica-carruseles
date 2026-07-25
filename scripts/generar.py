@@ -354,15 +354,29 @@ def numero_serie_instr(num: int, total: int, elemento: str = "numero", hay_refs:
     slides (solo cambia el valor n/total) para minimizar la variacion entre imagenes: misma
     posicion, mismo tamano, mismo tratamiento en toda la serie.
 
-    JERARQUIA referencias > defaults: si hay REFERENCIAS del usuario adjuntas (hay_refs), el numero
-    'abajo-derecha clavado' NO se impone — se REPLICA la convencion que muestran las referencias
-    (badge arriba, numero abajo, barra, dots, la que sea), manteniendo UNA sola convencion identica
-    en toda la serie. El default (numero discreto abajo-derecha) aplica SOLO SIN referencias;
-    'badge', 'barra' y 'numero+flecha-footer' son convenciones que el usuario modela sin refs."""
+    MARCADOR CONSISTENTE aun CON referencias (hay_refs): las slides se generan por separado (en
+    paralelo), asi que "sigue la convencion de las refs" NO basta — cada slide elige por su cuenta y
+    el marcador DERIVA (una slide lo pone en un ovalo arriba, otra en una pastilla abajo, otra en un
+    engrane). Por eso, aunque haya referencias, aqui se CLAVA UNA sola convencion FIJA, concreta e
+    IDENTICA en las N slides: misma forma, mismo tamano, misma POSICION y mismo color/tipografia. Las
+    referencias informan el ESTILO del marcador (numero simple vs badge, tratamiento a mano), pero esa
+    eleccion se toma UNA vez y se redacta byte-identica en cada prompt (solo cambia "n/total"). Sin
+    referencias, el usuario modela su convencion via elemento_serie ('numero'|'badge'|'barra'|
+    'numero+flecha-footer'), tambien clavada e identica en toda la serie."""
     if hay_refs:
-        return (f'SERIE: usa la MISMA convencion de numeracion/progreso de las REFERENCIAS (badge, numero, '
-                f'barra o dots — la que usen), valor "{num}/{total}", IDENTICA en forma, posicion, tipografia '
-                f'y color en TODAS las slides (una sola convencion). Refleja el avance {num} de {total}.')
+        # Convencion FIJA modelada del estilo de las referencias (numero de progreso simple con trazo a
+        # mano), clavada identica en las N slides. Se veta explicitamente encerrarlo en ovalo/pastilla/
+        # engrane: son justo las formas en que derivaba entre slides. El texto es byte-identico salvo el
+        # valor "n/total" (que refleja el avance), para que N generaciones independientes lo repitan igual.
+        return (f'MARCADOR DE SERIE (ancla visual FIJA de todo el carrusel): el numero de progreso '
+                f'"{num}/{total}" va SIEMPRE en la ESQUINA SUPERIOR DERECHA, dentro del margen superior, '
+                f'pequeno y discreto, en el color de acento y con un pequeno trazo/subrayado a mano debajo. '
+                f'Numero simple, SIN recuadro, pastilla, badge, circulo, ovalo, engrane ni ninguna forma que '
+                f'lo encierre. Es UNA sola convencion para toda la serie, del mismo estilo que el marcador de '
+                f'progreso de las REFERENCIAS, elegida una vez y CLAVADA IDENTICA en las {total} slides: misma '
+                f'forma, mismo tamano, misma POSICION exacta, misma tipografia y mismo color. El marcador NO '
+                f'cambia de forma ni de lugar entre slides; es el ancla visual de la serie. Lo UNICO que cambia '
+                f'entre slides es el numero "{num}/{total}".')
     if elemento == "badge":
         return (f'SERIE: numero "{num}/{total}" en una pastilla/badge en la ESQUINA SUPERIOR DERECHA, '
                 f'mismo estilo, tipografia, color, posicion y tamano en toda la serie.')
@@ -494,7 +508,9 @@ def bloque_referencias(ancla: bool, n_refs: int, sin_molde: bool, role: str = "v
             f"de serie/footer, tipografia y energia. Modela POR ROL: portada->portada, medias->valor, ultima->cierre; "
             f"esta slide es {rol_txt}. JAMAS copies su layout, textos, @usuario/handle/URL, ilustraciones/fotos, logos "
             "ni COLORES: manda la PALETA del usuario (solo la tipografia se modela). Pieza ORIGINAL de la marca, no una "
-            "copia recoloreada.")
+            "copia recoloreada. Las capturas traen la INTERFAZ de Instagram alrededor (avatares/fotos de perfil, flechas "
+            "de navegacion, iconos de like/comentar/compartir/guardar, anillos de historia, contadores, puntos de "
+            "carrusel): son del screenshot, NUNCA los dibujes; el diseño ocupa TODO el lienzo, limpio hasta el borde.")
     if sin_molde:
         partes.append("SERIE: manten identica paleta, tipografias y tratamiento en TODAS las slides.")
     return ("\n".join(partes) + "\n\n") if partes else ""
@@ -544,8 +560,9 @@ MARCA (respetala):
 - Paleta: primario {c_prim}, acento {c_sec}, fondo {c_fondo}, texto {c_texto}.
 - Tipografia {tipografia}. Texto LEGIBLE, bien escrito, sin faltas, alto contraste.
 - IDIOMA (CRITICO): escribe el texto TAL CUAL, palabra por palabra, EN ESPAÑOL. NO traduzcas, NO parafrasees,
-  NO cambies ni agregues palabras. Si las refs traen texto en otro idioma, IGNORALO: aqui TODO va en español.
-- Escribe cada frase UNA sola vez: no dupliques lineas, titulos ni palabras.
+  NO cambies ni agregues palabras. Aunque las imagenes de referencia (incluida su PORTADA) esten en INGLES u otro
+  idioma, IGNORA su idioma por completo: aqui TODO el texto va en español, sin una sola palabra en otro idioma.
+- Escribe cada frase UNA sola vez: no dupliques lineas, titulos, palabras ni la primera palabra de un bloque.
 - Solo el mensaje real: NADA de medidas, dimensiones, unidades, etiquetas tecnicas ni nombres internos de seccion.
 - @USUARIO (CRITICO): escribe UNICAMENTE el @usuario que se te indique abajo; si no se indica ninguno, el diseño va
   SIN @ y con el FOOTER LIMPIO. NUNCA inventes ni copies un @usuario, handle, arroba, URL o nombre de cuenta de las
