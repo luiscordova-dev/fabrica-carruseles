@@ -138,7 +138,7 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
    | Petición | UN carrusel COMPLETO (todas las slides) + opcional 1–2 sueltas | — |
    | Guardado | **NADA de archivos** — Claude LEE las capturas del chat (visión) y extrae su estilo a `marca.json` | — |
    | densidad · tipografía · tratamiento · `elemento_serie` | **INFERIDOS** de las refs → **sobrescriben** `marca.json` → confirmar en 1 línea (**NO se preguntan**) | se **preguntan** (3 preguntas, una a la vez) |
-   | Molde | **ON** (la portada MODELA las refs → luego ancla al resto) → cohesión fuerte | **ON** (portada ancla, solo tokens de estilo) |
+   | Molde | **ON** (la portada modela tu estilo inferido → luego ancla al resto) → cohesión fuerte | **ON** (portada ancla, solo tokens de estilo) |
    | Serie / footer | siguen el **patrón de las refs** (1 convención idéntica) | default **número abajo-derecha** clavado |
    | Prompt | modelado **ROL→ROL** (portada→portada, valor→valor, cierre→cierre) | anatomía default 4 zonas + CTA en recuadro |
    | Copy | presupuesto de la densidad **inferida** | presupuesto de la densidad elegida |
@@ -154,7 +154,8 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
    1. **LEE las capturas directo del chat (visión) — NUNCA archivos, NUNCA carpetas, NUNCA arrastrar.** Las imágenes
       que la persona pega en Claude Code **no se pueden guardar como archivo** (solo las VES). Así que **míralas y
       extrae su estilo tú mismo** — jamás le pidas guardarlas, crear una carpeta ni arrastrar nada. Tú te encargas de
-      todo con solo verlas en el chat.
+      todo con solo verlas en el chat. **Al usuario solo dale una línea cálida** (ej. *"¡Me encantan! Ya estoy
+      modelando tu estilo con ellas 🎨"*); **NUNCA le expliques** que "no se pueden guardar" ni menciones archivos — eso es interno.
       - **Órdenalas** como te las pasó (la 1ª = su portada, la última = su cierre) para modelar ROL→ROL.
       - **IDIOMA de la referencia:** si una referencia trae texto en **otro idioma** (inglés, etc.), avisa de una:
         *"Ojo: esta referencia está en inglés — la uso solo de **estilo**; el texto de tus slides sale **en español**."*
