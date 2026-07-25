@@ -115,7 +115,7 @@ class TestCandados(unittest.TestCase):
         (bug real: slides de valor sacaban el @ del gimnasio de la referencia en el footer)."""
         p = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, n_refs=2, sin_molde=True)
         self.assertIn("NUNCA inventes ni copies un @usuario", p)
-        self.assertIn("@usuario/handle/URL", p)
+        self.assertIn("@/handle/URL", p)
 
     def test_candado_idioma_incluye_refs_en_ingles(self):
         """Regen real: la portada salio en INGLES modelando la portada inglesa de la ref. El candado
@@ -130,11 +130,11 @@ class TestCandados(unittest.TestCase):
         flechas de navegacion, iconos de like/comentar, anillos de historia) que trae el screenshot
         (bug real: una slide replico esos elementos de UI)."""
         p = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, n_refs=2, sin_molde=True)
-        self.assertIn("INTERFAZ de Instagram", p)
-        self.assertIn("NUNCA los dibujes", p)
+        self.assertIn("UI de Instagram", p)
+        self.assertIn("NUNCA la dibujes", p)
         # Sin refs, ese veto no aplica (no hay capturas adjuntas).
         p_sin = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, n_refs=0, sin_molde=True)
-        self.assertNotIn("INTERFAZ de Instagram", p_sin)
+        self.assertNotIn("UI de Instagram", p_sin)
 
 
 def _sin_numero(instr: str) -> str:
@@ -158,8 +158,8 @@ class TestMarcadorSerieConsistente(unittest.TestCase):
 
     def test_marcador_es_ancla_fija_con_reglas_explicitas(self):
         instr = g.numero_serie_instr(3, TOTAL, "numero", hay_refs=True)
-        self.assertIn("ancla visual", instr)
-        self.assertIn("NO cambia de forma ni de lugar", instr)
+        self.assertIn("ancla fija", instr)
+        self.assertIn("lo UNICO que cambia es el numero", instr)
         self.assertIn("ESQUINA SUPERIOR DERECHA", instr)
         # Veta explicitamente las formas en que derivaba (ovalo, pastilla/badge, engrane).
         for forma in ("ovalo", "pastilla", "badge", "engrane"):

@@ -73,9 +73,9 @@ MAX_IMAGE_INPUT = 8       # tope de imagenes de referencia por tarea (nano-banan
 # carrusel normal quede ~4k chars, con margen aun si Kie llegara a exigir 5000.
 # Medimos chars Y bytes (el espanol acentuado infla los bytes en UTF-8) y aplicamos el limite
 # sobre los BYTES (siempre >= chars), la medida mas conservadora.
-KIE_PROMPT_LIMIT = 10000
-PROMPT_SAFETY_RATIO = 0.85
-PROMPT_SAFETY_LIMIT = int(KIE_PROMPT_LIMIT * PROMPT_SAFETY_RATIO)  # 8500 bytes
+KIE_PROMPT_LIMIT = 5000  # limite REAL de Kie: su error dice "cannot exceed 5000 characters"
+PROMPT_SAFETY_RATIO = 0.95
+PROMPT_SAFETY_LIMIT = int(KIE_PROMPT_LIMIT * PROMPT_SAFETY_RATIO)  # 4750 (real de Kie 5000; ~250 de margen)
 
 
 def medir_prompt(prompt: str):
@@ -368,15 +368,10 @@ def numero_serie_instr(num: int, total: int, elemento: str = "numero", hay_refs:
         # mano), clavada identica en las N slides. Se veta explicitamente encerrarlo en ovalo/pastilla/
         # engrane: son justo las formas en que derivaba entre slides. El texto es byte-identico salvo el
         # valor "n/total" (que refleja el avance), para que N generaciones independientes lo repitan igual.
-        return (f'MARCADOR DE SERIE (ancla visual FIJA de todo el carrusel): el numero de progreso '
-                f'"{num}/{total}" va SIEMPRE en la ESQUINA SUPERIOR DERECHA, dentro del margen superior, '
-                f'pequeno y discreto, en el color de acento y con un pequeno trazo/subrayado a mano debajo. '
-                f'Numero simple, SIN recuadro, pastilla, badge, circulo, ovalo, engrane ni ninguna forma que '
-                f'lo encierre. Es UNA sola convencion para toda la serie, del mismo estilo que el marcador de '
-                f'progreso de las REFERENCIAS, elegida una vez y CLAVADA IDENTICA en las {total} slides: misma '
-                f'forma, mismo tamano, misma POSICION exacta, misma tipografia y mismo color. El marcador NO '
-                f'cambia de forma ni de lugar entre slides; es el ancla visual de la serie. Lo UNICO que cambia '
-                f'entre slides es el numero "{num}/{total}".')
+        return (f'MARCADOR DE SERIE (ancla fija): numero "{num}/{total}" SIEMPRE en la ESQUINA SUPERIOR '
+                f'DERECHA, pequeno, color de acento, con un trazo a mano debajo. Numero simple, SIN '
+                f'recuadro/pastilla/badge/circulo/ovalo/engrane. IDENTICO en las {total} slides (misma forma, '
+                f'tamano, posicion, tipografia, color); lo UNICO que cambia es el numero.')
     if elemento == "badge":
         return (f'SERIE: numero "{num}/{total}" en una pastilla/badge en la ESQUINA SUPERIOR DERECHA, '
                 f'mismo estilo, tipografia, color, posicion y tamano en toda la serie.')
@@ -446,9 +441,8 @@ def tratamiento_visual_instr(tratamiento: str) -> str:
     else:
         positivo = ("la ilustracion/caricatura esta FUNDIDA con el diseño: mismo fondo, paleta y trazo, sin recuadro "
                     "propio, parte de la composicion")
-    return ("TRATAMIENTO DEL VISUAL (critico): " + positivo + ". Integrado, sin marcos ni bordes duros. PROHIBIDO: "
-            "foto recortada en un rectangulo, collage de foto pegada, y el layout 'columna de texto a un lado + bloque "
-            "de imagen al otro' tipo diapositiva de PowerPoint.")
+    return ("VISUAL: " + positivo + ". Integrado, sin marcos ni bordes duros. PROHIBIDO: foto recortada en rectangulo, "
+            "collage pegado, o layout 'texto a un lado + imagen al otro' tipo diapositiva de PowerPoint.")
 
 
 def anatomia_valor(densidad: str) -> str:
@@ -466,8 +460,8 @@ def presupuesto_texto(densidad: str) -> str:
     """Presupuesto de texto POR DENSIDAD (v2.3): 'completa' es una mini-guia real (mas texto), no se
     capa a ~30 palabras. Se mantiene el aviso anti-typos en todas."""
     if densidad == "completa":
-        return ("- Texto (MINI-GUIA): titulo <=8 palabras, subtitulo <=12, 3-5 bullets <=10 palabras + opcional 1 "
-                "anotacion (~50-60 palabras). El TEXTO manda, jerarquia clara con aire; bien escrito, sin faltas, alto contraste.")
+        return ("- Texto (MINI-GUIA): titulo <=8, subtitulo <=12, 3-5 bullets <=10 palabras + opcional 1 anotacion; "
+                "bien escrito, sin faltas, alto contraste.")
     if densidad == "aireada":
         return ("- Texto ESTRICTO (AIREADA): titulo <=8, subtitulo <=10, 0-2 bullets <=7 palabras (~30). "
                 "Mucho aire; menos texto = menos errores.")
@@ -503,14 +497,12 @@ def bloque_referencias(ancla: bool, n_refs: int, sin_molde: bool, role: str = "v
         cual = "Las DEMAS imagenes adjuntas" if ancla else "Las imagenes adjuntas"
         rol_txt = ROL_A_TEXTO.get(role, "las slides de VALOR (las de en medio)")
         partes.append(
-            f"{cual} son REFERENCIAS del usuario (idealmente un carrusel COMPLETO). Modela sus PRINCIPIOS: composicion, "
-            "densidad y jerarquia del texto, tipo de elementos (bullets con iconos, recuadros, anotaciones), convencion "
-            f"de serie/footer, tipografia y energia. Modela POR ROL: portada->portada, medias->valor, ultima->cierre; "
-            f"esta slide es {rol_txt}. JAMAS copies su layout, textos, @usuario/handle/URL, ilustraciones/fotos, logos "
-            "ni COLORES: manda la PALETA del usuario (solo la tipografia se modela). Pieza ORIGINAL de la marca, no una "
-            "copia recoloreada. Las capturas traen la INTERFAZ de Instagram alrededor (avatares/fotos de perfil, flechas "
-            "de navegacion, iconos de like/comentar/compartir/guardar, anillos de historia, contadores, puntos de "
-            "carrusel): son del screenshot, NUNCA los dibujes; el diseño ocupa TODO el lienzo, limpio hasta el borde.")
+            f"{cual} son REFERENCIAS del usuario. Modela sus PRINCIPIOS (composicion, densidad y jerarquia del texto, "
+            "tipo de elementos, convencion de serie/footer, tipografia, energia) POR ROL: portada->portada, "
+            f"medias->valor, ultima->cierre; esta slide es {rol_txt}. NO copies su layout, textos, @/handle/URL, "
+            "ilustraciones, logos ni COLORES: manda la PALETA del usuario (solo se modela la tipografia). Pieza ORIGINAL, "
+            "no copia recoloreada. Las capturas traen la UI de Instagram (avatares, flechas, like/comentar/guardar, "
+            "historias, puntos): NUNCA la dibujes; el diseño ocupa TODO el lienzo, limpio hasta el borde.")
     if sin_molde:
         partes.append("SERIE: manten identica paleta, tipografias y tratamiento en TODAS las slides.")
     return ("\n".join(partes) + "\n\n") if partes else ""
@@ -599,11 +591,9 @@ REQUISITOS:
             n_bullets = contar_bullets(body)
             # En densidad COMPLETA (mini-guia) los bullets SIEMPRE mandan; el visual es solo ambiente/apoyo pequeno.
             if n_bullets >= 2 or densidad == "completa":
-                etiqueta = "MINI-GUIA (el TEXTO manda)" if densidad == "completa" else f"BULLETS ({n_bullets} ideas)"
-                cuerpo = (f"  - CUERPO = {etiqueta}: el texto manda; el visual es SECUNDARIO (pequeno, en una esquina "
-                          "o como ambiente del fondo), nunca protagonista que compita con los bullets.\n"
+                cuerpo = (f"  - CUERPO = TEXTO (visual SECUNDARIO: pequeno en esquina o ambiente, nunca compite):\n"
                           f"{anatomia_valor(densidad)}\n"
-                          "  - SUBTITULO: no repitas ningun bullet; si el texto ya queda cubierto, omitelo y ve del titulo a los bullets.")
+                          "  - SUBTITULO: no repitas ningun bullet; si ya queda cubierto, omitelo.")
             else:
                 cuerpo = ("  - CUERPO = VISUAL PROTAGONISTA (0-1 idea de texto): el visual es el heroe, integrado en la "
                           "escena; a lo sumo 1 linea de apoyo, nada de listas.")
@@ -616,10 +606,9 @@ Contenido (respeta los bullets/pasos TAL CUAL, texto legible):
 "{body}"
 
 REQUISITOS:
-- Anatomia: (eyebrow opcional) + titulo + [subtitulo si aporta] + CUERPO + serie. Jerarquia de arriba a abajo.
-- Resalta UNA palabra clave del titulo con el acento {c_sec} (coloreada o subrayada), misma convencion en toda la serie.
-- VARIEDAD: el visual representa el TEMA de ESTA slide ("{title}"), no repite el sujeto de la portada ni de otras. Mismo estilo, sujeto distinto.
-- El CUERPO es UNA sola decision, NUNCA bullets Y visual protagonista compitiendo:
+- Anatomia: (eyebrow opcional) + titulo + [subtitulo si aporta] + CUERPO + serie, jerarquia de arriba a abajo.
+- Resalta UNA palabra clave del titulo con el acento {c_sec} (coloreada/subrayada), misma convencion en la serie.
+- VARIEDAD: el visual representa el TEMA de ESTA slide ("{title}"), no repite el sujeto de otras. Mismo estilo, sujeto distinto.
 {cuerpo}
 - Fondo limpio {c_fondo}, acentos {c_sec}. Consistente con la portada.
 '''
@@ -644,13 +633,14 @@ REQUISITOS:
     prompt = render(estilo_full, tipografia_full)
     if len(prompt.encode("utf-8")) <= PROMPT_SAFETY_LIMIT:
         return prompt
-    # Excede: recorta primero el estilo_visual (menor prioridad), luego tambien la tipografia.
-    for est_max in (600, 400, 250, 150):
+    # Excede: recorta el estilo_visual (menor prioridad), luego la tipografia. Con referencias el estilo
+    # lo cargan las imagenes adjuntas, asi que su TEXTO puede recortarse mucho sin perder el look.
+    for est_max in (600, 400, 250, 150, 80, 40):
         prompt = render(_recortar(estilo_full, est_max), tipografia_full)
         if len(prompt.encode("utf-8")) <= PROMPT_SAFETY_LIMIT:
             return prompt
-    for tip_max in (120, 60):
-        prompt = render(_recortar(estilo_full, 150), _recortar(tipografia_full, tip_max))
+    for tip_max in (120, 60, 30):
+        prompt = render(_recortar(estilo_full, 40), _recortar(tipografia_full, tip_max))
         if len(prompt.encode("utf-8")) <= PROMPT_SAFETY_LIMIT:
             return prompt
     ch, by = medir_prompt(prompt)
