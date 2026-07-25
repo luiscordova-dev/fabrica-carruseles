@@ -194,6 +194,13 @@ class TestGuardarCopiaLocal(unittest.TestCase):
             destino2 = pub.guardar_copia_local(bundle, destino_base=base)  # idempotente
             self.assertEqual(destino, destino2)
 
+    def test_base_default_es_escritorio_o_home(self):
+        import publicar as pub
+        base = pub._carpeta_base_default()
+        self.assertEqual(base.name, "Carruseles")
+        self.assertIn(base, {Path.home() / "Desktop" / "Carruseles",
+                             Path.home() / "Carruseles"})
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

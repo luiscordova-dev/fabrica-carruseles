@@ -120,11 +120,36 @@ def build_caption(args) -> str:
     sys.exit(1)
 
 
+def _carpeta_base_default() -> Path:
+    """Donde dejar los carruseles: el Escritorio si existe (facil de hallar), si no el HOME.
+    Funciona en Mac y Windows: Path.home() resuelve el usuario en ambos."""
+    desktop = Path.home() / "Desktop"
+    base = desktop if desktop.is_dir() else Path.home()
+    return base / "Carruseles"
+
+
+def abrir_carpeta(path: Path) -> bool:
+    """Abre la carpeta en el explorador de archivos (Finder en Mac, Explorer en Windows,
+    xdg-open en Linux) para que la persona vea su carrusel al instante. Nunca revienta:
+    abrir es un extra y no debe tumbar la publicacion. Devuelve True si lanzo el comando."""
+    import subprocess
+    try:
+        if sys.platform == "darwin":          # Mac
+            subprocess.run(["open", str(path)], check=False)
+        elif os.name == "nt":                 # Windows
+            os.startfile(str(path))           # noqa: PLE1101 (solo existe en Windows)
+        else:                                  # Linux u otros
+            subprocess.run(["xdg-open", str(path)], check=False)
+        return True
+    except Exception:
+        return False
+
+
 def guardar_copia_local(bundle_path: Path, destino_base: Optional[Path] = None) -> Path:
     """Copia el carrusel terminado (slides + caption + copy) a una carpeta facil de
-    encontrar en el HOME del usuario (~/Carruseles/<nombre>/), para que le quede LOCAL
+    encontrar (por default, Escritorio/Carruseles/<nombre>/), para que le quede LOCAL
     ademas de publicado. Idempotente (si ya existe, la actualiza). Devuelve la ruta destino."""
-    base = destino_base or (Path.home() / "Carruseles")
+    base = destino_base or _carpeta_base_default()
     destino = base / bundle_path.name
     (destino / "slides").mkdir(parents=True, exist_ok=True)
     for sub in ("slides", "laminas"):  # retrocompat con outputs viejos
@@ -261,6 +286,8 @@ def main():
             base = Path(args.guardar_en).expanduser() if args.guardar_en else None
             destino = guardar_copia_local(bundle_path, base)
             print(f"📁 Copia local guardada en: {destino}")
+            if abrir_carpeta(destino):
+                print("🔎 Abri la carpeta para que veas tu carrusel.")
         except Exception as ce:
             print(f"⚠️  No pude guardar la copia local ({ce}); tus slides siguen en {bundle_path}.")
     except Exception as e:
