@@ -62,6 +62,39 @@ MAX_POLL_ATTEMPTS = 120   # ~10 min por slide: Kie AI a veces encola y tarda var
 POLL_INTERVAL = 5
 MAX_IMAGE_INPUT = 8       # tope de imagenes de referencia por tarea (nano-banana-pro)
 
+# --- Presupuesto de tamano del campo `prompt` de Kie ---
+# Hallazgos empiricos (createTask + polling, nano-banana-pro, 2026-07):
+#   - createTask ACEPTA cualquier tamano; si algo esta mal, el fallo aparece al GENERAR (state=fail).
+#   - Prompts de 5k, 10k y 15k caracteres GENERARON bien; uno de 20k fallo con
+#     failMsg "Your prompt cannot exceed 5000 characters" (failCode 400).
+#   - O sea: Kie declara 5000 en su error pero NO lo aplica de forma consistente; tolera >=15k.
+# Elegimos 10000 como TECHO conservador del assert: por debajo del punto real de fallo (~15-20k)
+# y muy por encima de nuestro tamano normal (~4k). Ademas el andamiaje se compacto para que un
+# carrusel normal quede ~4k chars, con margen aun si Kie llegara a exigir 5000.
+# Medimos chars Y bytes (el espanol acentuado infla los bytes en UTF-8) y aplicamos el limite
+# sobre los BYTES (siempre >= chars), la medida mas conservadora.
+KIE_PROMPT_LIMIT = 10000
+PROMPT_SAFETY_RATIO = 0.85
+PROMPT_SAFETY_LIMIT = int(KIE_PROMPT_LIMIT * PROMPT_SAFETY_RATIO)  # 8500 bytes
+
+
+def medir_prompt(prompt: str):
+    """Tamano de un prompt como (chars, bytes). El limite se aplica sobre bytes (>= chars)."""
+    return len(prompt), len(prompt.encode("utf-8"))
+
+
+def _recortar(texto: str, max_chars: int) -> str:
+    """Recorta un texto a max_chars con elipsis, sin cortar a media palabra cuando se puede."""
+    t = (texto or "").strip()
+    if len(t) <= max_chars:
+        return t
+    corte = t[:max_chars].rsplit(" ", 1)[0].rstrip(" ,.;:")
+    return (corte or t[:max_chars]) + "…"
+
+
+class PromptDemasiadoLargo(Exception):
+    """El prompt no cabe en el presupuesto ni recortando los campos de menor prioridad."""
+
 
 def get_api_key() -> str:
     key = os.environ.get("KIE_API_KEY") or os.environ.get("KIE_AI_API_KEY")
@@ -327,29 +360,22 @@ def numero_serie_instr(num: int, total: int, elemento: str = "numero", hay_refs:
     en toda la serie. El default (numero discreto abajo-derecha) aplica SOLO SIN referencias;
     'badge', 'barra' y 'numero+flecha-footer' son convenciones que el usuario modela sin refs."""
     if hay_refs:
-        return (f'ELEMENTO DE SERIE: SIGUE la MISMA convencion de numeracion/progreso que usan las imagenes de '
-                f'REFERENCIA adjuntas (su misma forma y posicion: badge arriba, numero abajo, barra o dots — la que '
-                f'ellas usen), con el valor "{num}/{total}". No impongas la esquina inferior derecha si las referencias '
-                f'usan otra; pero mantenla IDENTICA en forma, posicion, tipografia y color en TODAS las slides de la '
-                f'serie (UNA sola convencion, no la cambies entre slides). Refleja el avance {num} de {total}.')
+        return (f'SERIE: usa la MISMA convencion de numeracion/progreso de las REFERENCIAS (badge, numero, '
+                f'barra o dots — la que usen), valor "{num}/{total}", IDENTICA en forma, posicion, tipografia '
+                f'y color en TODAS las slides (una sola convencion). Refleja el avance {num} de {total}.')
     if elemento == "badge":
-        return (f'ELEMENTO DE SERIE: coloca el numero "{num}/{total}" dentro de una pastilla/badge pequena en la '
-                f'ESQUINA SUPERIOR DERECHA, con el MISMO estilo de pastilla, tipografia y color en toda la serie, '
-                f'en identica posicion y tamano en cada slide.')
+        return (f'SERIE: numero "{num}/{total}" en una pastilla/badge en la ESQUINA SUPERIOR DERECHA, '
+                f'mismo estilo, tipografia, color, posicion y tamano en toda la serie.')
     if elemento == "barra":
-        return (f'ELEMENTO DE SERIE: en el FOOTER, una barra de progreso horizontal con el numero "{num}/{total}" '
-                f'al lado, con el MISMO estilo, grosor, tipografia y color en toda la serie, en identica posicion '
-                f'en cada slide (la barra refleja el avance {num} de {total}).')
+        return (f'SERIE: en el FOOTER, barra de progreso horizontal con "{num}/{total}" al lado, mismo estilo, '
+                f'grosor, tipografia, color y posicion en toda la serie (refleja el avance {num} de {total}).')
     if elemento == "numero+flecha-footer":
-        # Numero discreto + una flecha/"desliza" INTEGRADA en el footer (jamas flotante a media slide).
-        base_desliza = ('con una flecha "SWIPE ->" pequena y discreta INTEGRADA en el footer como parte del diseño '
-                        '(nunca flotando a media slide)' if num < total else 'sin flecha de deslizar (es la ultima)')
-        return (f'ELEMENTO DE SERIE: coloca el numero "{num}/{total}" en la ESQUINA INFERIOR DERECHA, pequeno y '
-                f'discreto, con la MISMA tipografia y color en toda la serie, en identica posicion en cada slide, '
-                f'{base_desliza}.')
-    return (f'ELEMENTO DE SERIE: coloca el numero "{num}/{total}" en la ESQUINA INFERIOR DERECHA, '
-            f'pequeno y discreto, con la MISMA tipografia y el MISMO color del texto en toda la serie, '
-            f'en identica posicion y tamano en cada slide.')
+        base_desliza = ('con una flecha "SWIPE ->" pequena INTEGRADA en el footer (nunca flotando a media slide)'
+                        if num < total else 'sin flecha de deslizar (es la ultima)')
+        return (f'SERIE: numero "{num}/{total}" en la ESQUINA INFERIOR DERECHA, pequeno y discreto, misma '
+                f'tipografia, color y posicion en toda la serie, {base_desliza}.')
+    return (f'SERIE: numero "{num}/{total}" en la ESQUINA INFERIOR DERECHA, pequeno y discreto, misma '
+            f'tipografia, color y posicion en toda la serie.')
 
 
 def extras_prohibidos(elemento_serie: str, hay_refs: bool = False) -> str:
@@ -361,9 +387,8 @@ def extras_prohibidos(elemento_serie: str, hay_refs: bool = False) -> str:
     el usuario ya trajo su lenguaje visual; se sigue lo que muestran las referencias y solo se veta
     agregar cosas que ELLAS no usan."""
     if hay_refs:
-        return ("Usa SOLO los recursos de serie/decoracion que aparecen en las imagenes de REFERENCIA "
-                "(numero, badge, barra, dots, etc.): NO inventes elementos que las referencias no usen. "
-                "Sea cual sea, manten UNA sola convencion identica en toda la serie.")
+        return ("Usa SOLO recursos de serie/decoracion que aparezcan en las REFERENCIAS (numero, badge, barra, "
+                "dots): no inventes otros. Una sola convencion identica en toda la serie.")
     extras = ["numeros fantasma", "barras de progreso", "badges o pastillas",
               "tarjetas comparativas", "stickers o washi tape", "footer de swipe"]
     if elemento_serie == "badge":
@@ -373,7 +398,7 @@ def extras_prohibidos(elemento_serie: str, hay_refs: bool = False) -> str:
     elif elemento_serie == "numero+flecha-footer":
         extras.remove("footer de swipe")
     return ("NO agregues por tu cuenta " + ", ".join(extras) +
-            ": no son parte de la anatomia default (solo entran si el usuario los trae en sus referencias).")
+            ": no son parte de la anatomia default (solo si el usuario los trae en sus referencias).")
 
 
 def contar_bullets(body: str) -> int:
@@ -399,54 +424,48 @@ def tratamiento_visual_instr(tratamiento: str) -> str:
     + veto explicito, porque los modelos obedecen mejor lo generativo que la sola prohibicion.
     El visual SIEMPRE vive dentro de la composicion, jamas como bloque recortado tipo diapositiva."""
     if tratamiento == "escena-fotografica":
-        positivo = ("el producto/objeto vive DENTRO de una escena fotografica real: sobre una superficie o plato, "
-                    "con luz natural y sombras suaves que lo anclan al mismo fondo de la slide, encuadre editorial. "
-                    "El texto se acomoda sobre las zonas limpias de esa misma foto")
+        positivo = ("el producto/objeto vive DENTRO de una escena fotografica real (sobre una superficie, luz natural "
+                    "y sombras suaves que lo anclan al mismo fondo); el texto va sobre las zonas limpias de esa foto")
     elif tratamiento == "graficos":
-        positivo = ("el visual es una composicion tipo ESQUEMA/DIAGRAMA educativo — iconos simples, flechas explicativas, "
-                    "etiquetas y anotaciones — dibujada con la misma paleta y trazo del diseño, sin recuadro propio, "
-                    "conectada al texto como parte de la misma composicion (estilo carrusel educativo)")
+        positivo = ("el visual es un ESQUEMA/DIAGRAMA educativo (iconos simples, flechas, etiquetas y anotaciones) con "
+                    "la misma paleta y trazo, sin recuadro propio, conectado al texto (estilo carrusel educativo)")
     else:
-        positivo = ("la ilustracion/caricatura esta FUNDIDA con el diseño: comparte fondo, paleta y trazo con el resto de "
-                    "la slide, sin recuadro propio, integrada como parte de la composicion")
-    return ("TRATAMIENTO DEL VISUAL (critico): " + positivo + ". El elemento visual va integrado, sin marcos ni bordes "
-            "duros. PROHIBIDO: fotos recortadas dentro de un rectangulo o bloque, collage de foto pegada, y el layout "
-            "'columna de texto a un lado + bloque de imagen al otro' tipo diapositiva de PowerPoint. Nada de ese aspecto.")
+        positivo = ("la ilustracion/caricatura esta FUNDIDA con el diseño: mismo fondo, paleta y trazo, sin recuadro "
+                    "propio, parte de la composicion")
+    return ("TRATAMIENTO DEL VISUAL (critico): " + positivo + ". Integrado, sin marcos ni bordes duros. PROHIBIDO: "
+            "foto recortada en un rectangulo, collage de foto pegada, y el layout 'columna de texto a un lado + bloque "
+            "de imagen al otro' tipo diapositiva de PowerPoint.")
 
 
 def anatomia_valor(densidad: str) -> str:
     """Como se resuelve el cuerpo de una slide de valor segun la densidad. La densidad regula CUANTA
     info por slide; la estetica la pone la marca, no esta funcion."""
     if densidad == "aireada":
-        return ("- Densidad AIREADA: 1-2 bullets muy cortos (o el visual protagonista con 0-1 bullet). "
-                "Mucho aire, una sola idea respirando.")
+        return "- AIREADA: 1-2 bullets muy cortos (o visual protagonista con 0-1 bullet). Mucho aire, una idea respirando."
     if densidad == "completa":
-        return ("- Densidad COMPLETA (slide tipo MINI-GUIA): 3-5 bullets con marcador de punto (keywords en negrita), "
-                "opcional 1 anotacion corta. El TEXTO manda el lienzo, ordenado en jerarquia clara con AIRE entre bloques; "
-                "el visual es pequeño (de ambiente o esquina), NUNCA dominante. Los bullets SIEMPRE mandan.")
-    return ("- Densidad MEDIA: 2-3 bullets cortos con marcador de punto (keywords en negrita). "
-            "Equilibrio entre informacion y aire, siempre escaneable.")
+        return ("- MINI-GUIA: 3-5 bullets con punto (keyword en negrita), opcional 1 anotacion. El TEXTO manda, en "
+                "jerarquia clara con AIRE entre bloques; el visual es pequeno (ambiente o esquina), NUNCA dominante.")
+    return "- MEDIA: 2-3 bullets cortos con punto (keyword en negrita). Equilibrio informacion/aire, escaneable."
 
 
 def presupuesto_texto(densidad: str) -> str:
     """Presupuesto de texto POR DENSIDAD (v2.3): 'completa' es una mini-guia real (mas texto), no se
     capa a ~30 palabras. Se mantiene el aviso anti-typos en todas."""
     if densidad == "completa":
-        return ("- Presupuesto de texto (slide tipo MINI-GUIA): titulo <=8 palabras, subtitulo <=12, 3-5 bullets de "
-                "<=10 palabras + opcional 1 anotacion corta (~50-60 palabras en total). El TEXTO manda el lienzo, "
-                "en jerarquia clara con aire entre bloques. Aun asi: texto bien escrito, sin faltas, alto contraste; no lo amontones.")
+        return ("- Texto (MINI-GUIA): titulo <=8 palabras, subtitulo <=12, 3-5 bullets <=10 palabras + opcional 1 "
+                "anotacion (~50-60 palabras). El TEXTO manda, jerarquia clara con aire; bien escrito, sin faltas, alto contraste.")
     if densidad == "aireada":
-        return ("- Presupuesto de texto ESTRICTO (AIREADA): titulo <=8 palabras, subtitulo <=10, 0-2 bullets <=7 palabras "
-                "(~30 palabras). Mucho aire. Menos texto = menos errores al renderizar.")
-    return ("- Presupuesto de texto ESTRICTO (MEDIA): titulo <=8 palabras, subtitulo <=10, 2-3 bullets <=7 palabras "
-            "(~30 palabras). Cero parrafos. Mas texto y mas elementos = mas deriva de posicion y mas errores al renderizar.")
+        return ("- Texto ESTRICTO (AIREADA): titulo <=8, subtitulo <=10, 0-2 bullets <=7 palabras (~30). "
+                "Mucho aire; menos texto = menos errores.")
+    return ("- Texto ESTRICTO (MEDIA): titulo <=8, subtitulo <=10, 2-3 bullets <=7 palabras (~30). "
+            "Cero parrafos; mas texto y mas elementos = mas deriva y mas errores.")
 
 
 def anatomia_header(densidad: str) -> str:
     """Encabezado del bloque de anatomia, segun densidad."""
     if densidad == "completa":
-        return "ANATOMIA DE LA SERIE (slide tipo MINI-GUIA: el TEXTO manda el lienzo, jerarquia clara con aire entre bloques):"
-    return "ANATOMIA FIJA DE LA SERIE (maximo 5 elementos por slide, ~30 palabras en total — equilibrio, no espectaculo):"
+        return "ANATOMIA (MINI-GUIA: el TEXTO manda, jerarquia clara con aire entre bloques):"
+    return "ANATOMIA (maximo 5 elementos, ~30 palabras — equilibrio, no espectaculo):"
 
 
 # Rol interno -> como se nombra al modelar por rol contra la referencia.
@@ -463,46 +482,41 @@ def bloque_referencias(ancla: bool, n_refs: int, sin_molde: bool, role: str = "v
     partes = []
     if ancla:
         partes.append(
-            "REFERENCIA DE ESTILO: la PRIMERA imagen adjunta es la PORTADA de este mismo carrusel. Copia EXACTAMENTE sus\n"
-            "TOKENS DE ESTILO (paleta, tipografias, iluminacion, texturas, tratamiento grafico) para la consistencia de la\n"
-            "serie. Pero NO copies su COMPOSICION/layout, NI la proporcion texto/imagen, NI el sujeto: aunque la portada\n"
-            "tenga una foto grande y poco texto, ESTA slide sigue SU propia estructura (definida abajo) y su propio sujeto."
-        )
+            "MOLDE: la 1a imagen adjunta es la PORTADA de este carrusel. Copia solo sus TOKENS de estilo (paleta, "
+            "tipografias, iluminacion, texturas, tratamiento). NO copies su composicion/layout, su proporcion "
+            "texto/imagen ni su sujeto: esta slide sigue SU propia estructura (abajo) y su propio sujeto.")
     if n_refs > 0:
         cual = "Las DEMAS imagenes adjuntas" if ancla else "Las imagenes adjuntas"
         rol_txt = ROL_A_TEXTO.get(role, "las slides de VALOR (las de en medio)")
         partes.append(
-            f"{cual} son REFERENCIAS que le gustan al usuario y forman (idealmente) un carrusel COMPLETO. Usalas como\n"
-            "INSPIRACION de composicion y estructura, MODELANDO sus PRINCIPIOS: tipo de composicion, densidad y jerarquia\n"
-            "del texto, clase de elementos (bullets con iconos, recuadros, anotaciones), la convencion de numeracion/serie\n"
-            "y footer, la tipografia y la energia/personalidad del diseño.\n"
-            f"MODELA POR ROL: la PORTADA de la referencia inspira nuestra portada, sus slides de EN MEDIO inspiran las de\n"
-            f"valor, y su ULTIMA inspira el cierre. ESTA slide es {rol_txt}: fijate sobre todo en las slides de ESE rol en\n"
-            "la referencia.\n"
-            "JAMAS copies su layout tal cual, sus textos o frases, sus ilustraciones/fotos, sus logos/marcas, ni sus\n"
-            "COLORES: la PALETA/COLORES del USUARIO mandan SIEMPRE (la tipografia si se modela de las refs). El resultado\n"
-            "debe verse como una pieza ORIGINAL de la marca del usuario que comparte principios de diseño con las\n"
-            "referencias, NO como una imitacion ni una plantilla re-coloreada de ellas."
-        )
+            f"{cual} son REFERENCIAS del usuario (idealmente un carrusel COMPLETO). Modela sus PRINCIPIOS: composicion, "
+            "densidad y jerarquia del texto, tipo de elementos (bullets con iconos, recuadros, anotaciones), convencion "
+            f"de serie/footer, tipografia y energia. Modela POR ROL: portada->portada, medias->valor, ultima->cierre; "
+            f"esta slide es {rol_txt}. JAMAS copies su layout, textos, @usuario/handle/URL, ilustraciones/fotos, logos "
+            "ni COLORES: manda la PALETA del usuario (solo la tipografia se modela). Pieza ORIGINAL de la marca, no una "
+            "copia recoloreada.")
     if sin_molde:
-        partes.append(
-            "SERIE: esta slide es parte de una serie — manten EXACTAMENTE la misma paleta, tipografias y tratamiento en TODA la serie."
-        )
+        partes.append("SERIE: manten identica paleta, tipografias y tratamiento en TODAS las slides.")
     return ("\n".join(partes) + "\n\n") if partes else ""
 
 
 def build_prompt(slide: Dict, role: str, marca: Dict, total: int,
                  ancla: bool = False, n_refs: int = 0, sin_molde: bool = False) -> str:
-    """Construye el prompt de imagen para una slide.
+    """Construye el prompt de imagen para una slide, respetando el presupuesto de tamano de Kie.
     total = numero de slides; ancla = la portada-molde es la PRIMERA imagen adjunta;
-    n_refs = cuantas referencias del usuario van adjuntas; sin_molde = el carrusel corre sin molde."""
+    n_refs = cuantas referencias del usuario van adjuntas; sin_molde = el carrusel corre sin molde.
+
+    Si el prompt excede el umbral seguro (PROMPT_SAFETY_LIMIT bytes), recorta SOLO los campos de
+    MENOR prioridad (estilo_visual, luego tipografia) — nunca el COPY, el candado de idioma ni las
+    prohibiciones criticas — y re-mide. Si aun asi no cabe, lanza PromptDemasiadoLargo con un
+    mensaje claro en español, ANTES de gastar en Kie."""
     colores = marca.get("colores", {})
     c_prim = colores.get("primario", "#111111")
     c_sec = colores.get("secundario", "#6F00FF")
     c_fondo = colores.get("fondo", "#FFFFFF")
     c_texto = colores.get("texto", "#111111")
-    tipografia = marca.get("tipografia", "sans-serif bold, limpia y moderna")
-    estilo = marca.get("estilo_visual", "ilustracion flat minimalista, alto contraste")
+    tipografia_full = str(marca.get("tipografia", "sans-serif bold, limpia y moderna")).rstrip(".")
+    estilo_full = str(marca.get("estilo_visual", "ilustracion flat minimalista, alto contraste"))
     # @ REAL del usuario o None si esta vacio/placeholder. Si es None, NINGUN prompt menciona @/usuario.
     handle = instagram_usuario_real(marca)
     densidad = densidad_de(marca)
@@ -512,109 +526,121 @@ def build_prompt(slide: Dict, role: str, marca: Dict, total: int,
     # JERARQUIA referencias > defaults: si hay referencias del usuario adjuntas, la serie/decoracion y
     # la tipografia siguen el patron de las referencias; los defaults 'clavados' aplican SOLO sin refs.
     hay_refs = n_refs > 0
-
     ref = bloque_referencias(ancla, n_refs, sin_molde, role=role)
+    title = slide["title"]
+    body = slide["content"]
+    # El @ del usuario va SOLO en portada y cierre, y solo si es real (nunca un placeholder).
+    handle_portada = (f'- Coloca el usuario "{handle}" pequeno y discreto en el footer (nunca encima del gancho).\n'
+                      if handle else "")
 
-    # Bloque de COMPOSICION comun a toda la serie. La composicion (jerarquia, densidad con orden,
-    # footer integrado, elemento que guia el ojo) la define el sistema. La ESTETICA — incluida la
-    # temperatura calida/fria — viene SOLO del estilo_visual de la marca: aqui no se impone ninguna.
-    base = f"""{ref}Diseño de una slide vertical para carrusel de Instagram (formato vertical, mas alto que ancho).
+    def render(estilo: str, tipografia: str) -> str:
+        # La composicion (jerarquia, densidad con orden, footer, serie) la define el sistema; la
+        # ESTETICA viene SOLO del estilo_visual de la marca. estilo/tipografia se pasan por parametro
+        # para poder recortarlos si el prompt se pasa del presupuesto (sin tocar copy ni candados).
+        base = f"""{ref}Slide vertical (4:5, mas alto que ancho) para carrusel de Instagram.
 
-IDENTIDAD DE MARCA (respetala estrictamente):
-- Estilo visual: {estilo}
+MARCA (respetala):
+- Estilo: {estilo}
 - Paleta: primario {c_prim}, acento {c_sec}, fondo {c_fondo}, texto {c_texto}.
-- Tipografia: {tipografia.rstrip('.')}. El texto debe leerse PERFECTAMENTE, bien escrito, sin faltas de ortografia, y con alto contraste.
-- IDIOMA (CRITICO): escribe el texto EXACTAMENTE como se te da, palabra por palabra, EN ESPAÑOL.
-  NO lo traduzcas al ingles ni a otro idioma, NO lo parafrasees, NO cambies ni agregues palabras.
-  Si las imágenes de referencia o la portada adjuntas contienen texto en OTRO idioma, IGNORA su idioma por completo: TODO el texto de esta slide va únicamente en español, exactamente como se te da.
-- No escribas dentro de la imagen ninguna medida, dimension, proporcion, unidad ni etiqueta tecnica,
-  ni nombres internos de seccion; unicamente el mensaje real de la slide.
-- SIN marcas de agua, SIN logos ajenos, SIN rostros de personas reales.
+- Tipografia {tipografia}. Texto LEGIBLE, bien escrito, sin faltas, alto contraste.
+- IDIOMA (CRITICO): escribe el texto TAL CUAL, palabra por palabra, EN ESPAÑOL. NO traduzcas, NO parafrasees,
+  NO cambies ni agregues palabras. Si las refs traen texto en otro idioma, IGNORALO: aqui TODO va en español.
+- Escribe cada frase UNA sola vez: no dupliques lineas, titulos ni palabras.
+- Solo el mensaje real: NADA de medidas, dimensiones, unidades, etiquetas tecnicas ni nombres internos de seccion.
+- @USUARIO (CRITICO): escribe UNICAMENTE el @usuario que se te indique abajo; si no se indica ninguno, el diseño va
+  SIN @ y con el FOOTER LIMPIO. NUNCA inventes ni copies un @usuario, handle, arroba, URL o nombre de cuenta de las
+  imagenes de referencia (traen los suyos: IGNORALOS por completo).
+- SIN marcas de agua, SIN logos ajenos, SIN rostros reales.
 
 {anatomia_header(densidad)}
-- Jerarquia tipografica clara, con tamanos MUY distintos entre niveles (eyebrow > titulo > subtitulo > cuerpo).
-- EYEBROW (opcional): una etiqueta corta de 1-3 palabras arriba (ej. "PASO 2", "EL ERROR #1") que da contexto antes del titulo. Usala solo si aporta.
-- Densidad CON orden: elementos alineados a una reticula, con aire; nunca texto flotando en el vacio ni amontonado. Se ve llena y ordenada, sin saturar.
+- Jerarquia tipografica con tamanos MUY distintos (eyebrow > titulo > subtitulo > cuerpo).
+- EYEBROW (opcional): etiqueta de 1-3 palabras arriba (ej. "PASO 2", "EL ERROR #1"), solo si aporta.
+- Todo alineado a una reticula, con aire: llena y ordenada, sin amontonar ni texto flotando en el vacio.
 {presupuesto_texto(densidad)}
 - {extras_prohibidos(elemento_serie, hay_refs)}
 - {tratamiento_visual_instr(tratamiento)}
-- Footer integrado como parte del diseño, no elementos sueltos flotando.
+- Footer integrado, sin elementos sueltos flotando.
 - {numero_serie_instr(num, total, elemento_serie, hay_refs)}
 
 """
+        if role == "gancho":
+            return base + f'''PORTADA (SLIDE 1) — tiene que PARAR EL SCROLL.
 
-    title = slide["title"]
-    body = slide["content"]
-
-    # El @ del usuario va SOLO en portada y cierre, y solo si es real (nunca un placeholder).
-    handle_portada = (f'- Coloca el usuario "{handle}" pequeño y discreto, integrado en el footer del diseño '
-                      f'(nunca encima del gancho ni compitiendo con el).\n' if handle else "")
-
-    if role == "gancho":
-        return base + f"""ESTA ES LA PORTADA (SLIDE 1) — tiene que PARAR EL SCROLL.
-
-Gancho grande y contundente (dolor o promesa, con un numero si lo hay):
+Gancho grande (dolor o promesa, con un numero si lo hay):
 "{title}"
 
 Subtitulo de apoyo:
 "{body}"
 
 REQUISITOS:
-- Anatomia de portada: gancho GRANDE (protagonista visual, el mayor peso tipografico) + subtitulo + un elemento protagonista.
-- Resalta UNA palabra clave del gancho con el color de acento {c_sec} (coloreada o subrayada), con la MISMA convencion en toda la serie.
-- El elemento protagonista refuerza la idea, en el estilo visual de la marca, con el color acento {c_sec}.
-{handle_portada}- Fondo {c_fondo}. Maximo impacto y contraste. Que invite a seguir viendo el carrusel.
-"""
-
-    if role == "valor":
-        n_bullets = contar_bullets(body)
-        # En densidad COMPLETA (mini-guia) los bullets SIEMPRE mandan; el visual es solo ambiente/apoyo pequeño.
-        if n_bullets >= 2 or densidad == "completa":
-            etiqueta = "MINI-GUIA (el TEXTO manda el lienzo)" if densidad == "completa" else f"BULLETS (esta slide trae {n_bullets} ideas)"
-            cuerpo = (f"  - CUERPO = {etiqueta}: el texto manda. El visual es SECUNDARIO: "
-                      "pequeño y de apoyo, integrado en una esquina o como textura/ambiente del fondo, NUNCA un visual "
-                      "protagonista a media pantalla que compita con los bullets.\n"
-                      f"{anatomia_valor(densidad)}\n"
-                      "  - SUBTITULO: no repitas el contenido de ningun bullet. Si el texto ya queda cubierto por los bullets, "
-                      "OMITE el subtitulo y ve directo del titulo a los bullets.")
-        else:
-            cuerpo = ("  - CUERPO = VISUAL PROTAGONISTA (esta slide trae 0-1 idea de texto): el elemento visual es el heroe, "
-                      "integrado en la escena. A lo sumo 1 linea de apoyo; nada de listas de bullets.")
-        return base + f"""SLIDE INTERMEDIA (contenido util) — anatomia de slide de valor.
+- Gancho GRANDE (el mayor peso tipografico) + subtitulo + un elemento protagonista.
+- Resalta UNA palabra clave del gancho con el acento {c_sec} (coloreada o subrayada), misma convencion en toda la serie.
+- El elemento protagonista refuerza la idea, en el estilo de la marca, con el acento {c_sec}.
+{handle_portada}- Fondo {c_fondo}. Maximo contraste. Que invite a seguir viendo el carrusel.
+'''
+        if role == "valor":
+            n_bullets = contar_bullets(body)
+            # En densidad COMPLETA (mini-guia) los bullets SIEMPRE mandan; el visual es solo ambiente/apoyo pequeno.
+            if n_bullets >= 2 or densidad == "completa":
+                etiqueta = "MINI-GUIA (el TEXTO manda)" if densidad == "completa" else f"BULLETS ({n_bullets} ideas)"
+                cuerpo = (f"  - CUERPO = {etiqueta}: el texto manda; el visual es SECUNDARIO (pequeno, en una esquina "
+                          "o como ambiente del fondo), nunca protagonista que compita con los bullets.\n"
+                          f"{anatomia_valor(densidad)}\n"
+                          "  - SUBTITULO: no repitas ningun bullet; si el texto ya queda cubierto, omitelo y ve del titulo a los bullets.")
+            else:
+                cuerpo = ("  - CUERPO = VISUAL PROTAGONISTA (0-1 idea de texto): el visual es el heroe, integrado en la "
+                          "escena; a lo sumo 1 linea de apoyo, nada de listas.")
+            return base + f'''SLIDE DE VALOR (contenido util).
 
 Titulo de la slide:
 "{title}"
 
-Contenido (respeta los bullets/pasos tal cual, texto legible):
+Contenido (respeta los bullets/pasos TAL CUAL, texto legible):
 "{body}"
 
 REQUISITOS:
-- Anatomia: (eyebrow opcional) + titulo + [subtitulo solo si aporta] + CUERPO + serie. Jerarquia clara de arriba a abajo.
-- Resalta UNA palabra clave del titulo con el color de acento {c_sec} (coloreada o subrayada), con la MISMA convencion en toda la serie.
-- VARIEDAD VISUAL: el elemento visual debe representar el TEMA DE ESTA slide ("{title}"), NO repetir el sujeto de la portada ni el de otras slides. Mismo estilo, sujeto distinto.
-- El CUERPO es UNA sola decision, JAMAS bullets Y visual protagonista compitiendo:
+- Anatomia: (eyebrow opcional) + titulo + [subtitulo si aporta] + CUERPO + serie. Jerarquia de arriba a abajo.
+- Resalta UNA palabra clave del titulo con el acento {c_sec} (coloreada o subrayada), misma convencion en toda la serie.
+- VARIEDAD: el visual representa el TEMA de ESTA slide ("{title}"), no repite el sujeto de la portada ni de otras. Mismo estilo, sujeto distinto.
+- El CUERPO es UNA sola decision, NUNCA bullets Y visual protagonista compitiendo:
 {cuerpo}
-- Fondo limpio {c_fondo}, acentos en {c_sec}. Consistente con la portada.
-"""
-
-    # cierre. El @ va solo si es real; si es None (vacio/placeholder), se OMITE toda mencion de usuario.
-    cabecera_cierre = "CTA en panel + tu usuario de Instagram" if handle else "CTA en panel"
-    handle_cierre = (f'- Incluye de forma clara el usuario "{handle}", integrado en el footer del diseño.\n'
-                     if handle else "")
-    return base + f"""ULTIMA SLIDE (cierre e invitacion a actuar) — anatomia de cierre: {cabecera_cierre}.
+- Fondo limpio {c_fondo}, acentos {c_sec}. Consistente con la portada.
+'''
+        # cierre. El @ va solo si es real; si es None (vacio/placeholder), se OMITE toda mencion de usuario.
+        cabecera_cierre = "CTA en panel + tu usuario de Instagram" if handle else "CTA en panel"
+        handle_cierre = (f'- Incluye el usuario "{handle}", integrado en el footer del diseño.\n' if handle else "")
+        return base + f'''CIERRE (ultima slide, invitacion a actuar) — anatomia: {cabecera_cierre}.
 
 Mensaje de cierre (escribelo TAL CUAL, natural y cercano):
 "{body}"
 
 REQUISITOS:
-- Debe sentirse como una invitacion entre personas, no como un anuncio.
-- PLANTILLA DEL CTA: el llamado a la accion (ej. "Comenta PALABRA") va DESTACADO DENTRO DE UN RECUADRO/PANEL
-  integrado a la estetica de la marca (un post-it, una pastilla, un marco punteado o un panel de color {c_sec},
-  el que pegue con {estilo}). La PALABRA para comentar lleva el MAYOR peso visual dentro del panel.
-- El panel es parte del diseño, integrado, NUNCA un elemento pegado encima ni un banner generico.
-- Debajo o dentro del panel, opcional 1 linea corta de refuerzo (rapido/facil/gratis) si el mensaje la trae.
-{handle_cierre}- COHERENCIA DE MARCA (critico): usa EXACTAMENTE la misma paleta del resto del carrusel; el acento protagonista es {c_sec}.
-"""
+- Debe sentirse como una invitacion entre personas, no un anuncio.
+- CTA EN PANEL: el llamado (ej. "Comenta PALABRA") va DESTACADO dentro de un recuadro/panel integrado a la marca
+  (post-it, pastilla, marco punteado o panel {c_sec}, el que pegue con el estilo). La PALABRA a comentar lleva el mayor peso.
+- El panel es parte del diseño, integrado, NUNCA pegado encima ni un banner generico.
+- Opcional 1 linea corta de refuerzo (rapido/facil/gratis) si el mensaje la trae.
+{handle_cierre}- COHERENCIA (critico): usa EXACTAMENTE la misma paleta del carrusel; el acento protagonista es {c_sec}.
+'''
+
+    # --- Presupuesto de tamano: nunca mandamos a Kie un prompt que sabemos que fallaria. ---
+    prompt = render(estilo_full, tipografia_full)
+    if len(prompt.encode("utf-8")) <= PROMPT_SAFETY_LIMIT:
+        return prompt
+    # Excede: recorta primero el estilo_visual (menor prioridad), luego tambien la tipografia.
+    for est_max in (600, 400, 250, 150):
+        prompt = render(_recortar(estilo_full, est_max), tipografia_full)
+        if len(prompt.encode("utf-8")) <= PROMPT_SAFETY_LIMIT:
+            return prompt
+    for tip_max in (120, 60):
+        prompt = render(_recortar(estilo_full, 150), _recortar(tipografia_full, tip_max))
+        if len(prompt.encode("utf-8")) <= PROMPT_SAFETY_LIMIT:
+            return prompt
+    ch, by = medir_prompt(prompt)
+    raise PromptDemasiadoLargo(
+        f"El texto de la slide {num} es demasiado largo para generarla de una sola vez "
+        f"({ch:,} caracteres / {by:,} bytes; el maximo seguro son {PROMPT_SAFETY_LIMIT:,} bytes). "
+        f"Acorta el copy de esta slide (o el estilo visual de tu marca) y vuelve a intentar.")
 
 
 def create_task(api_key: str, prompt: str, image_input: Optional[List[str]] = None) -> Optional[str]:
@@ -761,12 +787,31 @@ def main():
             print(f"Referencias en config/referencias/: {n_refs_local} (se subirían a Kie al generar).")
         if not molde_on:
             print("Sin molde: las slides se generarían TODAS en paralelo desde el inicio.")
-        print(f"\n(dry-run) Prompts completos que se enviarian:\n")
+        # Tamano de cada prompt vs el limite de Kie. Asi el bug de "prompt demasiado largo" queda
+        # atrapado en el dry-run (que no gasta) para siempre.
+        print(f"\n{'='*60}\nTAMANO DE PROMPTS (limite Kie {KIE_PROMPT_LIMIT:,} · umbral seguro {PROMPT_SAFETY_LIMIT:,} bytes)\n{'='*60}")
+        prompts = {}
+        hay_error = False
         for s in slides:
             role = slide_role(s["number"], total)
             ancla, n_refs, sin_molde = _params_prompt(s["number"] == cover_num, molde_on, n_refs_local)
-            print(f"\n--- Slide {s['number']} ({role}) ---")
-            print(build_prompt(s, role, marca, total, ancla=ancla, n_refs=n_refs, sin_molde=sin_molde))
+            try:
+                p = build_prompt(s, role, marca, total, ancla=ancla, n_refs=n_refs, sin_molde=sin_molde)
+                prompts[s["number"]] = (role, p)
+                ch, by = medir_prompt(p)
+                estado = "✓" if by <= PROMPT_SAFETY_LIMIT else "✗ SE PASA"
+                print(f"  Slide {s['number']} ({role}): {ch:,} chars / {by:,} bytes / {KIE_PROMPT_LIMIT:,} {estado}")
+            except PromptDemasiadoLargo as e:
+                hay_error = True
+                print(f"  Slide {s['number']} ({role}): ✗ {e}")
+        print(f"\n(dry-run) Prompts completos que se enviarian:\n")
+        for s in slides:
+            if s["number"] in prompts:
+                role, p = prompts[s["number"]]
+                print(f"\n--- Slide {s['number']} ({role}) ---")
+                print(p)
+        if hay_error:
+            print("\n⚠️  Una o más slides no caben en el presupuesto: acorta su copy antes de generar.")
         print("\n(dry-run) No se genero nada. Quita --dry-run para generar.")
         return
 
@@ -784,18 +829,26 @@ def main():
     def procesar(slide_obj, role, image_input, ancla, n_refs, sin_molde, permitir_fallback):
         """Genera UNA slide (crear tarea -> esperar -> opcional fallback sin molde -> descargar)."""
         n = slide_obj["number"]
-        tid = create_task(api_key, build_prompt(slide_obj, role, marca, total,
-                                                ancla=ancla, n_refs=n_refs, sin_molde=sin_molde),
-                          image_input=(image_input or None))
+        try:
+            prompt = build_prompt(slide_obj, role, marca, total,
+                                  ancla=ancla, n_refs=n_refs, sin_molde=sin_molde)
+        except PromptDemasiadoLargo as e:
+            print(f"   ❌ Slide {n}: {e}")
+            return None
+        tid = create_task(api_key, prompt, image_input=(image_input or None))
         url = poll_task(api_key, tid, f"[Slide {n}]") if tid else None
         if not url and permitir_fallback:
             # La URL de la portada-molde pudo expirar (URLs de Kie viven ~24h). Reintenta 1 vez SIN molde.
             print(f"   ⚠️  Slide {n} falló con el molde. La portada de referencia ya expiró "
                   f"(las URLs de Kie viven ~24h); genero sin molde…")
             imgs2 = ref_urls[:MAX_IMAGE_INPUT]
-            tid2 = create_task(api_key, build_prompt(slide_obj, role, marca, total,
-                                                     ancla=False, n_refs=len(imgs2), sin_molde=True),
-                              image_input=(imgs2 or None))
+            try:
+                prompt2 = build_prompt(slide_obj, role, marca, total,
+                                       ancla=False, n_refs=len(imgs2), sin_molde=True)
+            except PromptDemasiadoLargo as e:
+                print(f"   ❌ Slide {n} (sin molde): {e}")
+                return None
+            tid2 = create_task(api_key, prompt2, image_input=(imgs2 or None))
             url = poll_task(api_key, tid2, f"[Slide {n} sin molde]") if tid2 else None
             if url:
                 print(f"   ℹ️  Generé la slide {n} sin molde. Si quieres consistencia total, "
