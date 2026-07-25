@@ -4,15 +4,15 @@
 Corre asi (con el Python del venv de la skill o cualquiera con la stdlib):
     python3 scripts/test_generar.py
 
-Cubre lo critico que ya nos ha mordido:
-- Presupuesto de tamano del prompt (chars Y bytes) por debajo del umbral seguro.
-- Recorte automatico del estilo_visual cuando el prompt se pasa (sin tocar copy ni candados).
+Cubre lo critico del BRIEF LEAN (director creativo, no 'tag soup'):
+- Presupuesto de tamano del prompt por debajo del umbral seguro (con y sin refs).
+- Recorte automatico del estilo_visual cuando el prompt se pasa (sin tocar el COPY).
 - Error claro (PromptDemasiadoLargo) cuando ni recortando cabe.
-- Candado de idioma presente y placeholder de @usuario blindado.
-- El @ real va SOLO en portada y cierre, nunca en las slides de valor.
+- Esenciales del brief: idioma español, copy exacto, paleta de acento, marcador consistente.
+- El @ real va SOLO en portada y cierre; placeholder se omite.
+- Con referencias: son SOLO estilo visual (no copiar texto/@/UI de Instagram).
+- Molde: en 'auto' la portada SIEMPRE ancla la serie.
 """
-import os
-import re
 import sys
 import unittest
 from pathlib import Path
@@ -53,7 +53,7 @@ def _bytes(p):
 class TestPresupuesto(unittest.TestCase):
     def test_todas_las_slides_bajo_umbral(self):
         """Config real (con y sin refs): cada prompt cabe bajo el umbral seguro."""
-        for n_refs, sin_molde, ancla in [(2, True, False), (0, False, True)]:
+        for n_refs, sin_molde, ancla in [(2, True, False), (0, False, True), (7, False, True)]:
             for s in SLIDES:
                 role = g.slide_role(s["number"], TOTAL)
                 p = g.build_prompt(s, role, MARCA, TOTAL, ancla=ancla, n_refs=n_refs, sin_molde=sin_molde)
@@ -83,11 +83,31 @@ class TestPresupuesto(unittest.TestCase):
         self.assertIn("demasiado largo", str(ctx.exception).lower())
 
 
-class TestCandados(unittest.TestCase):
-    def test_candado_idioma_presente(self):
+class TestBriefLean(unittest.TestCase):
+    def test_idioma_espanol(self):
         p = g.build_prompt(SLIDES[0], "gancho", MARCA, TOTAL, sin_molde=True)
-        self.assertIn("EN ESPAÑOL", p)
-        self.assertIn("IDIOMA", p)
+        self.assertIn("ESPAÑOL", p)
+
+    def test_idioma_espanol_con_referencias(self):
+        """Aun con referencias (que pueden estar en ingles), el brief pide texto en español."""
+        p = g.build_prompt(SLIDES[0], "gancho", MARCA, TOTAL, n_refs=2, sin_molde=True)
+        self.assertIn("ESPAÑOL", p)
+
+    def test_copy_exacto_presente(self):
+        """El copy del usuario va literal en el prompt (el modelo lo renderiza tal cual)."""
+        p = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, sin_molde=True)
+        self.assertIn(SLIDES[1]["title"], p)
+        self.assertIn("1.6-2 g de proteina por kilo.", p)
+
+    def test_paleta_de_acento_presente(self):
+        p = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, sin_molde=True)
+        self.assertIn(g.color_acento(MARCA["colores"]), p)   # el acento REAL (color mas vivo)
+
+    def test_acento_es_el_color_mas_vivo(self):
+        # primario amarillo vibrante vs secundario casi-negro -> acento = amarillo (primario).
+        self.assertEqual(g.color_acento({"primario": "#E9B02E", "secundario": "#1A1A1A"}), "#E9B02E")
+        # primario oscuro vs secundario morado vibrante -> acento = morado (secundario).
+        self.assertEqual(g.color_acento({"primario": "#131628", "secundario": "#6F00FF"}), "#6F00FF")
 
     def test_placeholder_usuario_se_omite(self):
         marca = dict(MARCA)
@@ -105,79 +125,48 @@ class TestCandados(unittest.TestCase):
         # En la slide de valor NO se mete el @ por su cuenta (solo si el copy lo trae, y aqui no).
         self.assertNotIn("@grizlygym", valor)
 
-    def test_prohibiciones_criticas_presentes(self):
-        p = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, n_refs=2, sin_molde=True)
-        self.assertIn("PowerPoint", p)          # veto layout diapositiva
-        self.assertIn("PALETA del usuario", p)  # no recolorear refs / paleta del usuario manda
+    def test_valor_pie_limpio(self):
+        """El bug real: el @ se colaba en slides de valor. En framing POSITIVO el brief pide el pie
+        'limpio y despejado' (mencionar '@usuario' hasta para prohibirlo puede provocar que lo dibuje)."""
+        p = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, sin_molde=True)
+        self.assertIn("limpio y despejado", p)
 
-    def test_veto_copiar_handle_de_referencias(self):
-        """Con refs, el prompt prohibe explicitamente copiar el @usuario/handle/URL de las referencias
-        (bug real: slides de valor sacaban el @ del gimnasio de la referencia en el footer)."""
+    def test_referencias_solo_estilo_visual(self):
+        """Con refs: son REFERENCIA DE ESTILO (estetica), aplicada con la paleta/texto de arriba (framing positivo)."""
         p = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, n_refs=2, sin_molde=True)
-        self.assertIn("NUNCA inventes ni copies un @usuario", p)
-        self.assertIn("@/handle/URL", p)
-
-    def test_candado_idioma_incluye_refs_en_ingles(self):
-        """Regen real: la portada salio en INGLES modelando la portada inglesa de la ref. El candado
-        de idioma ahora dice explicitamente que aunque la ref (incluida su portada) este en ingles,
-        el texto va en español."""
-        p = g.build_prompt(SLIDES[0], "gancho", MARCA, TOTAL, n_refs=2, sin_molde=True)
-        self.assertIn("INGLES", p)
-        self.assertIn("PORTADA", p)
-
-    def test_veta_interfaz_instagram_de_las_refs(self):
-        """Con refs (capturas de IG), el prompt prohibe dibujar la interfaz de Instagram (avatares,
-        flechas de navegacion, iconos de like/comentar, anillos de historia) que trae el screenshot
-        (bug real: una slide replico esos elementos de UI)."""
-        p = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, n_refs=2, sin_molde=True)
-        self.assertIn("UI de Instagram", p)
-        self.assertIn("NUNCA la dibujes", p)
-        # Sin refs, ese veto no aplica (no hay capturas adjuntas).
+        self.assertIn("REFERENCIA DE ESTILO", p)
+        self.assertIn("estetica", p)
+        self.assertIn("full-bleed", p)
+        # Sin refs, esa nota no aplica.
         p_sin = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, n_refs=0, sin_molde=True)
-        self.assertNotIn("UI de Instagram", p_sin)
+        self.assertNotIn("REFERENCIA DE ESTILO", p_sin)
 
-
-def _sin_numero(instr: str) -> str:
-    """Normaliza la instruccion del marcador quitando el valor 'n/total' (lo UNICO que puede cambiar
-    entre slides), para poder comparar byte-a-byte el resto del texto."""
-    return re.sub(r"\d+/\d+", "N/N", instr)
-
-
-class TestMarcadorSerieConsistente(unittest.TestCase):
-    """El fix de hoy: con referencias, el marcador de serie es UNA convencion FIJA, byte-identica
-    en todas las slides salvo el numero. Antes derivaba (ovalo arriba / pastilla abajo / engrane)."""
-
-    def test_marcador_byte_identico_entre_slides_con_refs(self):
-        instrs = [g.numero_serie_instr(n, TOTAL, "numero", hay_refs=True) for n in range(1, TOTAL + 1)]
-        normalizadas = {_sin_numero(i) for i in instrs}
-        self.assertEqual(len(normalizadas), 1,
-                         "el marcador NO es byte-identico entre slides (salvo el numero) con refs")
-        # Y el numero SI cambia (no quedo estatico por error).
-        self.assertIn("1/6", instrs[0])
-        self.assertIn("6/6", instrs[-1])
-
-    def test_marcador_es_ancla_fija_con_reglas_explicitas(self):
-        instr = g.numero_serie_instr(3, TOTAL, "numero", hay_refs=True)
-        self.assertIn("ancla fija", instr)
-        self.assertIn("lo UNICO que cambia es el numero", instr)
-        self.assertIn("ESQUINA SUPERIOR DERECHA", instr)
-        # Veta explicitamente las formas en que derivaba (ovalo, pastilla/badge, engrane).
-        for forma in ("ovalo", "pastilla", "badge", "engrane"):
-            self.assertIn(forma, instr, f"deberia vetar encerrar el marcador en {forma}")
-
-    def test_marcador_byte_identico_dentro_del_prompt_completo(self):
-        """End-to-end: la instruccion del marcador aparece byte-identica (salvo el numero) dentro del
-        prompt COMPLETO de las 6 slides, en la config real (con refs, sin molde)."""
-        prompts = []
+    def test_marcador_consistente_con_su_numero(self):
+        """El marcador n/total va en cada slide con su numero, y se pide igual en toda la serie."""
         for n in range(1, TOTAL + 1):
-            slide = {"number": n, "title": f"Titulo {n}", "content": "Bullet uno.\nBullet dos.\nBullet tres."}
-            role = g.slide_role(n, TOTAL)
-            prompts.append(g.build_prompt(slide, role, MARCA, TOTAL, n_refs=2, sin_molde=True))
-        marcadores = [_sin_numero(g.numero_serie_instr(n, TOTAL, "numero", hay_refs=True)).split("N/N")[0]
-                      for n in range(1, TOTAL + 1)]
-        # La cabecera del marcador (antes del primer numero) debe aparecer literal en cada prompt.
-        for p, cab in zip(prompts, marcadores):
-            self.assertIn(cab, p)
+            slide = {"number": n, "title": f"Titulo {n}", "content": "Uno.\nDos."}
+            p = g.build_prompt(slide, g.slide_role(n, TOTAL), MARCA, TOTAL, n_refs=2, sin_molde=True)
+            self.assertIn(f"{n}/{TOTAL}", p)
+            self.assertIn("mismo tamaño", p)   # marcador consistente en toda la serie
+
+
+class TestMolde(unittest.TestCase):
+    """La portada SIEMPRE ancla la serie en 'auto' (antes se apagaba con refs y las slides derivaban)."""
+
+    def test_auto_es_on_con_y_sin_referencias(self):
+        marca = dict(MARCA)  # molde 'auto'
+        self.assertTrue(g.molde_activo(marca, hay_refs=True),
+                        "auto con referencias debe encender el molde (portada = ancla de la serie)")
+        self.assertTrue(g.molde_activo(marca, hay_refs=False),
+                        "auto sin referencias tambien enciende el molde")
+
+    def test_off_y_on_los_manda_el_usuario(self):
+        m_off = dict(MARCA); m_off["molde"] = "off"
+        m_on = dict(MARCA); m_on["molde"] = "on"
+        self.assertFalse(g.molde_activo(m_off, hay_refs=True))
+        self.assertFalse(g.molde_activo(m_off, hay_refs=False))
+        self.assertTrue(g.molde_activo(m_on, hay_refs=True))
+        self.assertTrue(g.molde_activo(m_on, hay_refs=False))
 
 
 if __name__ == "__main__":

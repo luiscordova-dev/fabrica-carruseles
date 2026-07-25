@@ -62,12 +62,12 @@ responda preguntas y apruebe. Tú haces lo técnico y tú propones; ella confirm
   - En vez de "corro un dry-run/ensayo" → *"Antes de gastar, reviso rápido que todo esté perfecto ✅"*.
   - En vez de "déjame leer mi guía de estructura" → **simplemente escribe el copy** (no anuncies que vas a leer nada).
   - En vez de "genero con el script" → *"Estoy generando tus slides…"*.
-- **JAMÁS narres autocorrecciones ni diagnósticos técnicos del motor.** La skill se afina sola por dentro;
-  eso NO se cuenta en el chat. Nunca digas que algo "se pasó del límite", que "compacté el andamiaje / el
-  prompt", ni menciones bytes, umbrales, nombres de funciones o reintentos internos. Si una generación falla,
-  dilo simple y humano:
-  - *"3 slides no salieron a la primera — las reintento 🔄"* (y ya, sin explicar por qué).
-  - Si el reintento tampoco sale: *"Un par de slides se resistieron. Lo vuelvo a intentar; si sigue igual, avísanos y lo resolvemos."* — cero tecnicismos.
+- **JAMÁS narres tropiezos ni diagnósticos técnicos del motor.** La skill se afina sola por dentro y **entrega
+  SOLO cuando ya está bien** — el usuario final es cero técnico. Nunca digas que algo "se pasó del límite",
+  "compacté el prompt", "esta slide no salió", "te insistí y se sigue repitiendo", ni menciones bytes, umbrales,
+  cuántas slides fallaron, costos de reintentos ni nombres de funciones. **Cero reporte de errores al usuario.**
+  Corrige en silencio (editando) y presenta el set ya terminado. A lo mucho, UNA frase cálida y neutra mientras
+  afinas (*"Dame un segundo, dejo tus slides finas ✨"*) — nunca un parte de fallos.
 
 ### Glosario — NO digas / SÍ di
 | En vez de… | Di… |
@@ -126,8 +126,8 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
 4. **PASO DE ESTILO** — sigue este árbol de decisión **sin saltarte pasos**. La referencia es la petición #1;
    sin referencias, se crea el estilo con preguntas. **Pregunta de entrada** (una sola):
    > ¿Tienes **UN carrusel COMPLETO** que te **ENCANTE** para inspirarnos? Pásame capturas de **TODAS sus slides**
-   > (portada, las de en medio y el cierre) 📸. ¿Por qué completo? Porque así aprendo su **sistema entero**: cómo es
-   > su portada, cómo enseñan las de valor y cómo cierran. Si quieres, suma 1–2 capturas sueltas extra de otros
+   > (portada, las de en medio y el cierre) 📸. ¿Por qué completo? Porque así modelo su **estilo VISUAL entero**: cómo
+   > se VE su portada, cómo se VEN sus slides y cómo se VE su cierre. Si quieres, suma 1–2 capturas sueltas extra de otros
    > carruseles. Ojo: las uso de **INSPIRACIÓN** para modelar la composición, **jamás las copio**: el diseño sale
    > 100% con tu marca. ¿No tienes ninguno a la mano? No pasa nada — creamos tu estilo con unas preguntas rápidas.
 
@@ -138,7 +138,7 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
    | Petición | UN carrusel COMPLETO (todas las slides) + opcional 1–2 sueltas | — |
    | Guardado | archivos en `config/referencias/` + `ls` + confirmación + candado pre-gen | — |
    | densidad · tipografía · tratamiento · `elemento_serie` | **INFERIDOS** de las refs → **sobrescriben** `marca.json` → confirmar en 1 línea (**NO se preguntan**) | se **preguntan** (3 preguntas, una a la vez) |
-   | Molde | **OFF** (refs = ancla) → todas en paralelo | **ON** (portada ancla, solo tokens de estilo) |
+   | Molde | **ON** (la portada MODELA las refs → luego ancla al resto) → cohesión fuerte | **ON** (portada ancla, solo tokens de estilo) |
    | Serie / footer | siguen el **patrón de las refs** (1 convención idéntica) | default **número abajo-derecha** clavado |
    | Prompt | modelado **ROL→ROL** (portada→portada, valor→valor, cierre→cierre) | anatomía default 4 zonas + CTA en recuadro |
    | Copy | presupuesto de la densidad **inferida** | presupuesto de la densidad elegida |
@@ -158,6 +158,9 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
         (ref-01 = su portada, ref-02 = la siguiente…; **máx 7**, jpeg/png/webp).
       - **VERIFICA con `ls`** que los archivos existen y **CONFÍRMASELO**: *"✓ Guardé tus N referencias — las voy a
         usar de guía visual en cada generación."*
+      - **IDIOMA de la referencia:** si una referencia trae texto en **otro idioma** (inglés, etc.), avisa de una:
+        *"Ojo: esta referencia está en inglés — la uso solo de **estilo**; el texto de tus slides sale **en español**."*
+        (De todos modos el motor lo fuerza y el checklist de auto-verificación lo caza; esto solo pone expectativa.)
       - **CANDADO PRE-GENERACIÓN:** antes de generar, si el usuario pasó referencias en el chat pero
         `config/referencias/` está **vacía** → **DETENTE**, guárdalas primero (o pídelas de nuevo si no localizas las
         rutas). **PROHIBIDO** generar "diciendo" que usas referencias sin los archivos presentes.
@@ -169,10 +172,12 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
    3. **ACTUALIZA `marca.json` con esos valores, SOBRESCRIBIENDO los viejos.** Los valores de un onboarding anterior
       **NO sobreviven** si las referencias dicen otra cosa y el usuario confirma. **CONFIRMA en UNA sola línea**:
       *"Veo: mini-guía densa, letra manuscrita, gráficos con doodles, número de serie abajo — ¿así?"* → ajusta lo que corrija.
-   4. **`molde` queda en `"auto"` → OFF** (las referencias son el ancla común) → todas las slides en paralelo. El
-      prompt **modela ROL→ROL** (su portada→nuestra portada, sus slides de valor→las nuestras, su cierre→el nuestro) y
-      sigue la **convención de serie/footer de las referencias** (UNA sola, idéntica en toda la serie). Esto lo aplica
-      solo `generar.py` cuando detecta referencias adjuntas — tú solo guárdalas e infiérelas bien.
+   4. **`molde` queda en `"auto"` → ON** (la portada **ancla** la serie también con referencias): la portada primero
+      **modela** tus referencias y luego se vuelve el **ADN visual** de las otras slides, que la heredan. Así el estilo
+      NO deriva slide por slide (el bug real con 1 sola referencia débil). El prompt **modela ROL→ROL** (su portada→nuestra
+      portada, sus slides de valor→las nuestras, su cierre→el nuestro) y sigue la **convención de serie/footer de las
+      referencias** (UNA sola, idéntica en toda la serie). Esto lo aplica solo `generar.py` (genera la portada primero,
+      luego el resto en paralelo con la portada de ancla) — tú solo guarda las refs e infiérelas bien.
 
    #### CAMINO B — SIN referencias (CREAR TU ESTILO, una pregunta a la vez, NUNCA en bloque)
    1. *"¿Qué tipo de imágenes van con tu marca? a) **Fotografía realista** b) **Ilustración/caricatura**
@@ -193,10 +198,15 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
    y `generar.py` las sube frescas a Kie en cada corrida (URLs ~24h).
 
    **Candados que aplican siempre** (en cualquiera de los dos caminos):
-   - **Modelar ≠ copiar:** *"tus referencias me enseñan el **CÓMO** está compuesto — el diseño sale **100% de TU
-     marca**, nunca una copia."* Se toman los PRINCIPIOS (composición, densidad, jerarquía, clase de elementos,
-     energía); **nunca** su layout tal cual, textos, fotos/ilustraciones, logos, ni **COLORES** (la **paleta/colores
-     del usuario mandan SIEMPRE**; la **tipografía sí se modela** de las referencias en el Camino A).
+   - **Modelar ≠ copiar:** *"tus referencias me enseñan el **CÓMO VISUAL** está compuesto — el diseño sale **100% de TU
+     marca**, nunca una copia."* Se toman los PRINCIPIOS **visuales** (composición, densidad, jerarquía, clase de
+     elementos, energía); **nunca** su layout tal cual, textos, fotos/ilustraciones, logos, ni **COLORES** (la
+     **paleta/colores del usuario mandan SIEMPRE**; la **tipografía sí se modela** de las referencias en el Camino A).
+   - **La referencia da SOLO lo VISUAL — NUNCA el contenido ni el CTA.** El **CÓMO se escribe y se enseña el valor**
+     (gancho→retención→recompensa, una idea por slide, dar el qué), la **oferta**, el **CTA / llamada a la acción**, la
+     **palabra clave** y el **texto** salen del **usuario y de NUESTRA estructura de copy** (`reference/estructura-carrusel.md`),
+     **jamás** de la referencia. (Bug real: una referencia con *"evaluación gratuita / plan personalizado / llamada"* le
+     contaminó el CTA sugerido — el usuario no ofrece eso; su cierre es *"Comenta PALABRA y te mando la guía"*.)
    - **referencias > defaults:** los defaults 'clavados' (número abajo-derecha, anatomía fija, extras vetados) aplican
      **SOLO SIN referencias**. Con referencias, el `elemento_serie`/footer, la tipografía y la densidad se **infieren
      del patrón de las refs** — manteniendo **UNA sola convención por serie, idéntica en todas las slides** (eso NO se negocia).
@@ -255,7 +265,9 @@ Pregunta tres cosas:
 2. **¿Cuántas slides?** (sugiere 6 si no sabe: 1 gancho + 4 de valor + 1 cierre)
 3. **¿Qué quieres que haga la gente al final?** Esto define el cierre:
    - **Entregarles algo** (una guía/checklist/plantilla) → cierre con *"comenta [PALABRA]"* y esa
-     palabra va también en el caption. Pregúntale qué recurso y qué palabra.
+     palabra va también en el caption. Pregúntale SOLO la **palabra clave** y, en una línea, **qué promete** (ej.
+     "una guía", "un plan") — **NO le pidas el formato ni el contenido detallado**: no hace falta (el cierre es
+     *"Comenta X y te la mando"*, sin mencionar formato ni qué incluye).
    - **Solo que comenten / platiquen** → cierre con una **pregunta abierta**, sin palabra clave.
 
 ### Paso 4 — Escribir el copy
@@ -281,10 +293,10 @@ Batido: 30 min antes.
 ````
 
 Reglas al escribir (críticas — el test real falló aquí):
-- **NUNCA inventes detalles del recurso del CTA.** No escribas "te mando la guía **en PDF gratis**" si no
-  sabes el formato ni el nombre. Usa EXACTAMENTE lo que el usuario definió; si el CTA necesita un dato que
-  no tienes (formato, nombre del recurso, qué incluye), **pregúntaselo ANTES de escribir el copy**. Cero
-  invención — es la misma regla de honestidad que en `reference/estructura-carrusel.md`.
+- **CTA LIMPIO — sin detalles del recurso.** El cierre va *"Comenta X y te la mando"*, **sin** formato, nombre ni
+  contenido de la guía. Por eso **NO** necesitas preguntar el formato ni qué incluye (no van en el copy), y **JAMÁS**
+  los inventes ni los agregues ("en PDF", "PDF gratis", "plantilla"). Lo único que necesitas es la **palabra clave**.
+  Misma regla de honestidad + "menos es más" de `reference/estructura-carrusel.md`.
 - El **título es el titular real** que se verá grande. **NUNCA** pongas "Gancho/Valor/Recompensa/CTA"
   como título; eso es el rol interno, no el texto que se muestra.
 - **El COPY se escribe SEGÚN la densidad de `marca.json`** (la densidad dicta el presupuesto del **copy**, no solo de
@@ -316,12 +328,46 @@ Necesita `KIE_API_KEY` en el `.env`. Cuesta ~$0.10 por slide; avísale el costo 
 ~$0.60"). El tiempo varía según la carga de Kie AI (de ~1 min a varios minutos) — **si tarda, no
 falló, está generando**; espera a que termine. Las imágenes quedan en `$SK/outputs/<carpeta>/slides/`.
 
-### Paso 6 — Revisar
-Muéstrale las slides. Si alguna no le gusta (texto cortado, color raro), regenera solo esa:
+### Paso 6 — Afinar en silencio (ANTES de mostrar) y luego revisar
 
-```
-PY "$SK/scripts/generar.py" "$SK/outputs/<carpeta>" --regenerar "3"
-```
+**6a — REVISIÓN Y AFINADO INTERNO (obligatorio, EN SILENCIO, antes de mostrar nada).** El motor es un modelo
+de imagen (estocástico): a veces una slide sale ~90% bien con un detalle de sobra. **TÚ la dejas perfecta por
+dentro y solo entregas cuando ya está bien** — el usuario nunca ve los tropiezos ni te oye contarlos.
+**Regla de oro (guía oficial del modelo): si una slide está ~80% bien, EDÍTALA — NO la regeneres desde cero.**
+Editar es quirúrgico, barato y **conserva el texto en español** (regenerar lo re-escribe y puede dañarlo).
+
+1. **LEE cada slide** (`Read` sobre cada `slide-NN.png` en `$SK/outputs/<carpeta>/slides/`). Míralas de verdad.
+2. **Contra este checklist** (una falla = hay que corregirla):
+   - **IDIOMA:** TODO el texto en **español**, cero palabras en otro idioma.
+   - **MARCADOR DE SERIE:** el `n/total` con la **MISMA** forma, tamaño, tipografía, posición y **color de acento**
+     en todas las slides (**ojo con el cierre**), número correcto y creciente.
+   - **@USUARIO:** solo en **portada y cierre**. En una slide de valor (aunque sea el @ correcto) → corregir. Nunca
+     un @ ajeno copiado de una referencia ni un placeholder.
+   - **CERO UI de Instagram:** sin avatares, flechas "desliza", like/comentar, anillos de historia.
+   - **COHESIÓN:** todas comparten paleta, tipografía y lenguaje visual. Un elemento que sale en UNA sola slide
+     (flecha, badge, etiqueta, adorno) desentona → corregir.
+   - **LEGIBILIDAD:** texto completo, sin cortes, sin faltas, sin duplicados.
+   - **CIERRE — CTA EN RECUADRO:** el "Comenta PALABRA" va dentro de un recuadro/panel integrado.
+3. **CORRIGE cada falla EDITÁNDOLA** — instrucción chica y directa (el acento de la marca es el color más vivo):
+   ```
+   PY "$SK/scripts/generar.py" "$SK/outputs/<carpeta>" --editar N --instruccion "quita el @usuario del footer"
+   ```
+   Ejemplos por tipo de falla:
+   - @ en slide de valor → *"quita el @usuario del footer"*
+   - marcador/subrayado de color equivocado → *"pon el número N/total y su subrayado en color #RRGGBB (el acento)"*
+   - etiqueta de sobra sobre la ilustración → *"quita la etiqueta '…' de la imagen"*
+   - flecha "desliza" suelta → *"quita la flecha de deslizar"*
+   - CTA sin recuadro → *"mete el 'Comenta PALABRA' dentro de un recuadro/panel integrado al diseño"*
+   - texto duplicado → *"deja cada frase una sola vez, quita lo repetido"*
+   **Solo REGENERA desde cero** (`--regenerar N`) si la slide está mal de raíz (idioma equivocado en todo,
+   contenido incorrecto, ilegible) — cuando editar no alcanza. Editar es la vía por defecto.
+4. **Vuelve a leer** las que editaste y confirma que quedaron. Repite (editar → re-leer) hasta que **TODAS** pasen.
+5. **Cero narración de tropiezos.** Mientras afinas, NO digas "X no salió", no cuentes cuántas fallaron, no menciones
+   costos ni reintentos. A lo mucho UNA frase cálida neutra (*"Dame un segundo, dejo tus slides finas ✨"*).
+   **Entrega SOLO cuando el set completo ya está bien.**
+
+**6b — Revisar con el usuario.** Ya que todo pasa, muéstrale las slides. Si algo de **gusto** no le late (un color,
+un elemento), **edítalo** igual (`--editar`), no regeneres. El checklist de 6a es de **errores**; esto es de **preferencia**.
 
 > **Solo la PRIMERA vez, al mostrar el primer carrusel — pon expectativa honesta** (una frase, con tus palabras):
 > *"Tu Fábrica aprende de ti: entre más feedback le des (referencias, correcciones, qué te gustó), mejor se

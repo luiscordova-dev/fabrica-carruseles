@@ -45,6 +45,17 @@ Reglas: se lee en 2 segundos, es **específico** (no "3 tips para crecer"), y **
 verdadero** (casi polémico, nunca clickbait falso). Ganchos genéricos ("Cómo conseguir más leads",
 "Los beneficios de la IA") están prohibidos: nadie se detiene.
 
+**REGLA DE ORO DEL GANCHO — abre el vacío, NO lo cierras** (marco ACQ Gancho→Retención→Recompensa):
+El gancho **crea la tensión y la deja abierta**; la resuelves slide por slide (eso ES la retención). Por eso:
+- El **subtítulo de la slide 1 sube los stakes o mete contraste** (*"…y no es falta de esfuerzo"*, *"…y casi
+  nadie lo revisa"*), **JAMÁS lista las razones/pasos/puntos que vienen** en las otras slides. Un subtítulo que
+  es un **índice** ("Razón 1…, Razón 2…, Razón 3…") **regala el payoff antes de tiempo y mata la retención**:
+  ya no hay por qué deslizar. (Ese fue el error real: la portada dijo el gancho **y** enlistó las 4 razones.)
+- La portada **teasea UNA promesa/dolor + una pieza de intriga**, no el temario. Deja que **cada slide de valor
+  revele UNA sola idea nueva** — el que desliza va descubriendo, no confirmando lo que ya leyó.
+- Fórmula del vacío de curiosidad (úsala en el gancho): **COSA NORMAL + COSA INESPERADA**, o *"Pensé que era
+  sobre ___, pero en realidad era sobre ___."* Genera el *"espera… necesito ver el resto"*.
+
 ### 2. Slides intermedias: valor, UNA idea por slide
 - **Una sola idea por slide.** Si tienes 7 pasos, son 7 slides, no una con los 7.
 - **Da el "qué", no todo el "cómo".** Regala el mapa y el *qué hacer*; el *cómo* fino (la
@@ -70,7 +81,10 @@ no todo puede ser historia ni todo dato. Y siempre real: una historia inventada 
 ### 3. Última slide: recompensa + UN solo CTA
 Cumple la promesa del gancho y pide **una sola acción** (nunca tres llamados que compiten):
 - **Palabra a comentar** (entrega un recurso): *"Comenta AGENTE y te mando la guía."* Palabra corta
-  y fácil de escribir (mejor "MAPA" que "blueprint").
+  y fácil de escribir (mejor "MAPA" que "blueprint"). **Mantén el cierre LIMPIO:** no le cuelgues coletillas
+  de formato ("**en PDF**", "**PDF gratis**", "plantilla de Notion", "checklist descargable") — ni las
+  **inventes** ni las agregues **aunque las sepas**. *"Comenta X y te la mando"* basta; el formato lo descubre
+  al recibirla. Menos es más en el CTA: cada palabra extra le resta fuerza a la palabra clave.
 - **Pregunta abierta** (conversación): *"¿Cuál de estas te roba más horas? Cuéntame abajo."*
 - **Siguiente paso suave** (<5 min): *"Guarda esto y elige UNA tarea para automatizar esta semana."*
 
@@ -79,9 +93,12 @@ con los "sabores" que la gente quiere: **rápido, fácil, sin riesgo, barato** (
 
 ### Reglas de oro
 - **Honestidad total.** Cero resultados, cifras o casos inventados. Un dato real modesto vende más
-  que uno inflado — y no quema la confianza, que es el activo que construyes. **Tampoco inventes detalles
-  del recurso del CTA** (formato, nombre, qué incluye): usa lo que el usuario definió; si falta un dato,
-  pregúntaselo antes de escribir el copy.
+  que uno inflado — y no quema la confianza, que es el activo que construyes. **El CTA va LIMPIO**: no menciones
+  formato, nombre ni contenido del recurso ("en PDF", "PDF gratis", "plantilla") — así que ni los inventes ni los
+  preguntes; basta la palabra clave y *"te la mando"*.
+- **La referencia es solo VISUAL.** Si el usuario pasa un carrusel de referencia, se modela su ESTÉTICA (composición,
+  tipografía, marcador, color-treatment) — **jamás** su CTA, su oferta ni su contenido. El gancho, el valor y el CTA
+  salen de ESTA guía y de la oferta del usuario, no de la referencia.
 - **Una idea por slide.**
 - **Lenguaje simple**, con las **palabras exactas de la audiencia** (no las tuyas). Se lee, no se descifra.
 - El diseño bonito ayuda solo si mejora la comprensión; nunca salva una idea vacía.
