@@ -169,5 +169,31 @@ class TestMolde(unittest.TestCase):
         self.assertTrue(g.molde_activo(m_on, hay_refs=False))
 
 
+class TestGuardarCopiaLocal(unittest.TestCase):
+    """publicar.guardar_copia_local deja el carrusel (slides + caption + copy) en una
+    carpeta facil de encontrar del HOME, ademas de publicarlo."""
+
+    def test_copia_slides_caption_y_copy_a_destino(self):
+        import tempfile
+        import publicar as pub
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            bundle = tmp / "2026-07-25-tema"
+            (bundle / "slides").mkdir(parents=True)
+            (bundle / "slides" / "slide-01.png").write_bytes(b"\x89PNG_fake")
+            (bundle / "slides" / "slide-02.png").write_bytes(b"\x89PNG_fake")
+            (bundle / "caption.txt").write_text("Mi caption. Comenta FABRICA", encoding="utf-8")
+            (bundle / "carrusel.md").write_text("### SLIDE 1", encoding="utf-8")
+            base = tmp / "Carruseles"
+            destino = pub.guardar_copia_local(bundle, destino_base=base)
+            self.assertEqual(destino, base / "2026-07-25-tema")
+            self.assertTrue((destino / "slides" / "slide-01.png").is_file())
+            self.assertTrue((destino / "slides" / "slide-02.png").is_file())
+            self.assertTrue((destino / "caption.txt").is_file())
+            self.assertTrue((destino / "carrusel.md").is_file())
+            destino2 = pub.guardar_copia_local(bundle, destino_base=base)  # idempotente
+            self.assertEqual(destino, destino2)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

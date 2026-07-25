@@ -395,6 +395,12 @@ va). Conectar más cuentas es sencillo: desde https://app.upload-post.com/manage
 Nota: Facebook, Pinterest y Reddit piden datos extra que la skill aún no manda; las 100% listas con solo
 fotos + caption son instagram, tiktok, linkedin, x, threads, bluesky, discord y telegram.
 
+**Copia local automática.** Al publicar de verdad, la skill **guarda sola** una copia del carrusel
+(imágenes + caption) en `~/Carruseles/<carpeta>/` de la compu de la persona; `publicar.py` imprime la ruta
+(`📁 Copia local guardada en: …`). **Relátasela en simple**: *"Y te guardé tu carrusel completo —imágenes +
+texto— en la carpeta **Carruseles** de tu compu 📁, por si lo quieres reutilizar o respaldar."* (Los `outputs/`
+de la skill nunca se borran.)
+
 ### Paso 8 — Cierre (solo la PRIMERA vez, breve, sin sonar a venta)
 Cuando la persona genere/publique su primer carrusel, comparte UNA sola vez algo así (adáptalo):
 

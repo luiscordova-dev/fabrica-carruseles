@@ -29,6 +29,7 @@ Referencia API: https://docs.upload-post.com  (endpoint POST /api/upload_photos)
 import os
 import sys
 import json
+import shutil
 import argparse
 from pathlib import Path
 from typing import List, Optional
@@ -119,6 +120,25 @@ def build_caption(args) -> str:
     sys.exit(1)
 
 
+def guardar_copia_local(bundle_path: Path, destino_base: Optional[Path] = None) -> Path:
+    """Copia el carrusel terminado (slides + caption + copy) a una carpeta facil de
+    encontrar en el HOME del usuario (~/Carruseles/<nombre>/), para que le quede LOCAL
+    ademas de publicado. Idempotente (si ya existe, la actualiza). Devuelve la ruta destino."""
+    base = destino_base or (Path.home() / "Carruseles")
+    destino = base / bundle_path.name
+    (destino / "slides").mkdir(parents=True, exist_ok=True)
+    for sub in ("slides", "laminas"):  # retrocompat con outputs viejos
+        src = bundle_path / sub
+        if src.is_dir():
+            for img in sorted(src.glob("*.png")):
+                shutil.copy2(img, destino / "slides" / img.name)
+    for nombre in ("caption.txt", "carrusel.md"):
+        src = bundle_path / nombre
+        if src.is_file():
+            shutil.copy2(src, destino / nombre)
+    return destino
+
+
 def main():
     ap = argparse.ArgumentParser(description="Publica un carrusel en Instagram (Upload-Post).")
     ap.add_argument("bundle", help="Carpeta del carrusel (con slides/)")
@@ -133,6 +153,8 @@ def main():
                          "Opciones: " + ", ".join(PLATAFORMAS_SOPORTADAS))
     ap.add_argument("--dry-run", action="store_true",
                     help="Arma y muestra el request sin publicar (no postea nada).")
+    ap.add_argument("--guardar-en", type=str, default=None,
+                    help="Carpeta base para la copia local del carrusel (default: ~/Carruseles/).")
     args = ap.parse_args()
 
     bundle_path = Path(args.bundle).expanduser().resolve()
@@ -235,6 +257,12 @@ def main():
             print(resp.text)
         resp.raise_for_status()
         print("\n✅ Enviado a Upload-Post. Revisa tu Instagram en unos segundos.")
+        try:
+            base = Path(args.guardar_en).expanduser() if args.guardar_en else None
+            destino = guardar_copia_local(bundle_path, base)
+            print(f"📁 Copia local guardada en: {destino}")
+        except Exception as ce:
+            print(f"⚠️  No pude guardar la copia local ({ce}); tus slides siguen en {bundle_path}.")
     except Exception as e:
         print(f"\n❌ Error publicando: {e}")
         print("   Causas comunes: IG no es Business/Creator ligada a pagina de Facebook,")
