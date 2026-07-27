@@ -153,7 +153,7 @@ de PowerPoint**. Eso se ve barato y "de diapositiva". Si no viene el campo, se i
 Regula solo **cuántos bullets** entran en el cuerpo (opción a); la anatomía no cambia:
 - **`aireada`** — 1–2 bullets (o el visual con 0–1 bullet). Mucho aire.
 - **`media`** (default) — 2–3 bullets.
-- **`completa`** — hasta 3 bullets, lleno pero ordenado y dentro del presupuesto.
+- **`completa`** — 3–5 bullets, lleno pero ordenado y dentro del presupuesto.
 
 ### Por qué esta anatomía (y no más elementos)
 **Más elementos = más deriva de posición y más typos renderizados.** La jerarquía

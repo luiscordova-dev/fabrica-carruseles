@@ -135,25 +135,26 @@ def load_marca() -> Dict:
 # El onboarding puede dejar campos con su valor de ejemplo/placeholder si el usuario no los
 # llenó. JAMÁS deben llegar al modelo (en la prueba real "@tu_usuario" se renderizó literal en
 # 5 de 6 slides). El nucleo se compara normalizado (minusculas, sin @, sin espacios).
-PLACEHOLDERS_USUARIO = {"tu_usuario", "usuario", "tuusuario", ""}
-# Ademas del set exacto: cualquier @ que empiece con "tu_"/"su_" es un placeholder de la
-# plantilla. `marca.example.json` trae "@tu_pasteleria" y SKILL.md manda usarlo como base,
-# asi que sin esta regla se colaba literal a las slides — justo el bug que este blindaje evita.
-PREFIJOS_PLACEHOLDER = ("tu_", "su_")
+PLACEHOLDERS_USUARIO = {"tu_usuario", "usuario", "tuusuario", "tu_pasteleria", ""}
+# NOTA sobre por que esto es una lista EXACTA y no una regla de prefijo "tu_"/"su_":
+# en español "@tu_nutriologo", "@tu_coach", "@tu_barberia" son nombres de marca REALES.
+# Una regla de prefijo les borraria el @ de sus slides en silencio. El origen del bug era
+# otro: marca.example.json traia "@tu_pasteleria" y SKILL.md manda usarlo como plantilla.
+# Ya se cambio el ejemplo a "@tu_usuario"; "tu_pasteleria" se deja aqui por si alguien
+# instalo con la version vieja del ejemplo.
 
 
 def instagram_usuario_real(marca: Dict) -> Optional[str]:
     """Devuelve el @ REAL del usuario, o None si el campo esta vacio o trae un placeholder.
     Placeholders que se tratan como SIN usuario (comparando el nucleo normalizado):
-    '@tu_usuario', 'tu_usuario', '@usuario', 'usuario', '@tuusuario', '' y None,
-    mas cualquiera que empiece con 'tu_' o 'su_' (ej. '@tu_pasteleria' de la plantilla).
-    Cuando devuelve None, los prompts OMITEN por completo cualquier mencion de @/usuario."""
+    '@tu_usuario', 'tu_usuario', '@usuario', 'usuario', '@tuusuario', '@tu_pasteleria',
+    '' y None. Cuando devuelve None, los prompts OMITEN cualquier mencion de @/usuario."""
     raw = marca.get("instagram_usuario")
     if raw is None:
         return None
     limpio = str(raw).strip()
     nucleo = limpio.lstrip("@").strip().lower()
-    if nucleo in PLACEHOLDERS_USUARIO or nucleo.startswith(PREFIJOS_PLACEHOLDER):
+    if nucleo in PLACEHOLDERS_USUARIO:
         return None
     return limpio if limpio.startswith("@") else "@" + limpio
 
@@ -385,7 +386,12 @@ def build_prompt(slide: Dict, role: str, marca: Dict, total: int,
     hay_refs = n_refs > 0
 
     # Nota de referencias: SOLO estilo VISUAL (positiva y corta; nada de "tag soup").
-    if hay_refs:
+    # IMPORTANTE: esto NO puede depender solo de `hay_refs`. En el flujo normal no hay archivos de
+    # referencia (las capturas se leen por vision), pero SI se adjunta la portada como molde cuando
+    # `ancla` esta activo. Si la nota no se emite, la portada viaja MUDA: el modelo recibe una imagen
+    # sin que nadie le diga que es ni que hacer con ella — y la cohesion de la serie (el ADN visual
+    # que promete SKILL.md) corre a ciegas.
+    if hay_refs or ancla:
         ref_nota = ("\n\nLas imagenes adjuntas son tu REFERENCIA DE ESTILO: toma de ellas SOLO la estetica "
                     "(composicion, tipografia, tratamiento, aire) y aplicala con la PALETA y el texto de arriba. "
                     "Diseño full-bleed: ocupa TODO el lienzo, limpio hasta el borde.")
@@ -409,19 +415,23 @@ def build_prompt(slide: Dict, role: str, marca: Dict, total: int,
             f"{ref_nota}")
         marcador = (f'\n- Arriba a la derecha, el numero "{num}/{total}" pequeno en {c_sec}, del mismo tamaño '
                     f"y estilo en todas las slides.")
+        # El onboarding PREGUNTA el tratamiento visual (foto / ilustracion / graficos) y lo guarda en
+        # marca.json. Antes el prompt pedia siempre "una ilustracion", asi que a quien contestaba
+        # "fotografia realista" se le entregaba justo lo contrario de lo que eligio.
+        v_protagonista, v_apoyo, v_cierre = visual_de(marca)
         if role == "gancho":
             return (f"{cabecera}\n\n"
                     "PORTADA que para el scroll:\n"
                     f'- Titular GRANDE (el mayor peso visual), con una palabra clave en {c_sec}: "{title}"\n'
                     f'- Debajo, un subtitulo mas chico: "{body}"\n'
-                    "- Una ilustracion protagonista, integrada en el estilo de la marca, que refuerza la idea."
+                    f"- {v_protagonista}"
                     f"{handle_portada}{marcador}\n")
         if role == "valor":
             return (f"{cabecera}\n\n"
                     "SLIDE DE VALOR:\n"
                     f'- Titulo arriba, con una palabra clave en {c_sec}: "{title}"\n'
                     f'- Debajo, el contenido como bullets legibles, tal cual:\n"{body}"\n'
-                    "- Una ilustracion de apoyo sobre el tema de esta slide, a un lado o de fondo, en armonia con el texto.\n"
+                    f"- {v_apoyo}\n"
                     "- El pie de la slide va COMPLETAMENTE VACIO: sin @usuario, sin firma, sin texto de ningun tipo "
                     "(el @ aparece SOLO en la portada y en el cierre)."
                     f"{marcador}\n")
@@ -430,7 +440,7 @@ def build_prompt(slide: Dict, role: str, marca: Dict, total: int,
                 "CIERRE (invitacion a actuar):\n"
                 f'- Titulo arriba, con una palabra clave en {c_sec}: "{title}"\n'
                 f'- El llamado va DENTRO de un recuadro/panel integrado al diseño, con la palabra clave en el mayor peso: "{body}"\n'
-                "- El titulo y el llamado son el UNICO texto de la slide; una ilustracion calida los acompaña."
+                f"- El titulo y el llamado son el UNICO texto de la slide; {v_cierre}"
                 f"{handle_cierre}{marcador}\n")
 
     # --- Presupuesto de tamano: nunca mandamos a Kie un prompt que sabemos que fallaria. ---
@@ -458,11 +468,40 @@ def build_prompt(slide: Dict, role: str, marca: Dict, total: int,
         f"Acorta el copy de esta slide (o el estilo visual de tu marca) y vuelve a intentar.")
 
 
+# Como se traduce `tratamiento_visual` de marca.json a lo que se le pide al modelo.
+# El onboarding ofrece: a) fotografia realista  b) ilustracion  c) graficos/diagramas.
+# El default es "ilustracion" (lo que la skill hacia siempre), asi que una marca ya
+# configurada sigue viendose igual — solo deja de ignorarse a quien eligio otra cosa.
+TRATAMIENTOS_VISUALES = {
+    "escena-fotografica": (
+        "Una fotografia realista protagonista, integrada en el estilo de la marca, que refuerza la idea.",
+        "Una fotografia realista de apoyo sobre el tema de esta slide, a un lado o de fondo, en armonia con el texto.",
+        "una fotografia realista calida los acompaña."),
+    "ilustracion": (
+        "Una ilustracion protagonista, integrada en el estilo de la marca, que refuerza la idea.",
+        "Una ilustracion de apoyo sobre el tema de esta slide, a un lado o de fondo, en armonia con el texto.",
+        "una ilustracion calida los acompaña."),
+    "graficos": (
+        "Un grafico o diagrama protagonista, integrado en el estilo de la marca, que refuerza la idea.",
+        "Un grafico o diagrama de apoyo sobre el tema de esta slide, a un lado o de fondo, en armonia con el texto.",
+        "un grafico simple y calido los acompaña."),
+}
+
+
+def visual_de(marca: Dict):
+    """(protagonista, apoyo, cierre) segun `tratamiento_visual`. Cae a ilustracion si no se reconoce."""
+    clave = str(marca.get("tratamiento_visual", "ilustracion")).strip().lower()
+    return TRATAMIENTOS_VISUALES.get(clave, TRATAMIENTOS_VISUALES["ilustracion"])
+
+
 def exigir_requests() -> None:
     """Mensaje claro (no un stack trace) si falta la libreria para hablar con Kie AI."""
     if requests is None:
-        sys.exit("Falta una libreria para conectarse a internet. Instalala asi:\n"
-                 "    pip install requests")
+        # OJO: `pip install` pelón falla en las Macs "externally-managed" (ver SKILL.md Paso 0).
+        # Por eso se apunta al pip del venv de la skill, que es el que sí funciona.
+        sys.exit("Falta una libreria para conectarse a internet. Instalala con el Python de la skill:\n"
+                 '  Mac/Linux : "$HOME/.claude/skills/carrusel/venv/bin/pip" install requests\n'
+                 '  Windows   : "$HOME\\.claude\\skills\\carrusel\\venv\\Scripts\\pip.exe" install requests')
 
 
 def create_task(api_key: str, prompt: str, image_input: Optional[List[str]] = None) -> Optional[str]:

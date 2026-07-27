@@ -34,7 +34,7 @@ responda preguntas y apruebe. Tú haces lo técnico y tú propones; ella confirm
 >
 > **Dónde se guardan los carruseles (`$OUT`).** Cada carrusel vive en **UNA sola carpeta**, la del
 > usuario — nunca dentro de la skill, y **nunca se duplica**. `$OUT` sale de `config/marca.json`: el
-> campo **`carpeta_salida`** si existe; si no, **`~/Desktop/Carruseles/`** (o el HOME si no hay
+> campo **`carpeta_salida`** si trae una ruta (si está vacío o no está, NO cuenta); si no, **`~/Desktop/Carruseles/`** (o el HOME si no hay
 > Escritorio). Cada carrusel es una subcarpeta **`$OUT/<fecha>-<tema-corto>/`**. Créala antes de
 > escribir el copy y usa esa ruta en TODOS los comandos (generar, editar, publicar).
 
@@ -170,12 +170,12 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
         `marca.json`; no dependes de ningún archivo de imagen guardado.
    2. **INFIERE de las referencias — la inferencia MANDA** (con referencias **NO preguntas** densidad, tipografía ni
       tratamiento; los infieres): la **densidad** (¿mini-guía densa o aireada?), el **tratamiento visual**
-      (foto / ilustración / gráficos), la **tipografía**, el **`elemento_serie`** (número abajo, badge arriba, barra,
+      (foto / ilustración / gráficos), la **tipografía**, el **`elemento_serie`** (número arriba, badge, barra,
       dots…) y el tipo de elementos (bullets, recuadros, anotaciones). Escribe también un `estilo_visual` descriptivo.
       Regla explícita: **refs densas → `densidad: "completa"`** (nunca "media" por default).
    3. **ACTUALIZA `marca.json` con esos valores, SOBRESCRIBIENDO los viejos.** Los valores de un onboarding anterior
       **NO sobreviven** si las referencias dicen otra cosa y el usuario confirma. **CONFIRMA en UNA sola línea**:
-      *"Veo: mini-guía densa, letra manuscrita, gráficos con doodles, número de serie abajo — ¿así?"* → ajusta lo que corrija.
+      *"Veo: mini-guía densa, letra manuscrita, gráficos con doodles, número de serie arriba — ¿así?"* → ajusta lo que corrija.
    4. **`molde` queda en `"auto"` → ON** (la portada **ancla** la serie): la portada se genera primero **desde tu
       `marca.json`** (que ya capturó el estilo de tus referencias) y luego se vuelve el **ADN visual** de las otras
       slides, que lo heredan. Así el estilo NO deriva slide por slide. El prompt **modela ROL→ROL** (portada→portada,

@@ -39,7 +39,13 @@ try:
 except ImportError:
     pass
 
-import requests
+# `requests` solo hace falta para SUBIR de verdad. El --dry-run (que walkthroughs/02 manda correr
+# como verificacion) no toca la red, asi que el import es suave: sin la libreria el ensayo sigue
+# corriendo y solo al publicar sale un mensaje claro, no un stack trace.
+try:
+    import requests
+except ImportError:                                              # pragma: no cover
+    requests = None
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 MARCA_FILE = SKILL_ROOT / "config" / "marca.json"
@@ -238,6 +244,13 @@ def main():
     if not user:
         print("❌ Falta el perfil (user) de Upload-Post.")
         print("   Ponlo en config/marca.json como 'upload_post_user' o pasalo con --user.")
+        sys.exit(1)
+
+    if requests is None:
+        print("❌ Falta una libreria para conectarse a internet.")
+        print("   Instalala con el Python de la skill:")
+        print('   Mac/Linux : "$HOME/.claude/skills/carrusel/venv/bin/pip" install requests')
+        print('   Windows   : "$HOME\\.claude\\skills\\carrusel\\venv\\Scripts\\pip.exe" install requests')
         sys.exit(1)
 
     headers = {"Authorization": f"Apikey {api_key}"}

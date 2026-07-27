@@ -116,21 +116,26 @@ class TestBriefLean(unittest.TestCase):
         p = g.build_prompt(SLIDES[0], "gancho", marca, TOTAL, sin_molde=True)
         self.assertNotIn("tu_usuario", p)
 
-    def test_placeholder_de_la_plantilla_se_omite(self):
-        """marca.example.json trae '@tu_pasteleria' y SKILL.md manda usarlo como base.
-        Antes se colaba literal a las slides: el set solo cubria '@tu_usuario'."""
+    def test_el_placeholder_de_la_plantilla_nunca_se_cuela(self):
+        """SKILL.md manda usar marca.example.json como base, asi que SU @ jamas puede
+        tratarse como real: si se cuela, se imprime literal en las slides del usuario.
+        Este test lee el archivo de verdad, para que siga valiendo si el ejemplo cambia."""
         import json as _json
         from pathlib import Path as _Path
         ejemplo = _json.loads(
             (_Path(g.__file__).resolve().parent.parent / "config" / "marca.example.json").read_text())
         self.assertIsNone(g.instagram_usuario_real(ejemplo),
-                          "el @ de marca.example.json NO debe tratarse como real")
-        for falso in ["@tu_pasteleria", "@su_negocio", "tu_marca"]:
-            self.assertIsNone(g.instagram_usuario_real({"instagram_usuario": falso}), falso)
+                          "el @ que trae marca.example.json NO debe tratarse como real")
+        # '@tu_pasteleria' fue el ejemplo anterior: sigue vetado por si alguien instalo con esa version.
+        for falso in ["@tu_pasteleria", "@tu_usuario", "@usuario", "  ", None]:
+            self.assertIsNone(g.instagram_usuario_real({"instagram_usuario": falso}), str(falso))
 
-    def test_usuarios_reales_que_empiezan_con_tu_no_se_pierden(self):
-        """El blindaje mira el prefijo 'tu_' CON guion bajo: '@tucan_cafe' es un @ real."""
-        for real in ["@tucan_cafe", "@tulipanes", "@surf_shop", "@luiscordova.ia"]:
+    def test_marcas_reales_que_empiezan_con_tu_no_se_pierden(self):
+        """En español '@tu_nutriologo' o '@tu_coach' son nombres de marca REALES.
+        Por eso el blindaje es una lista exacta y NO una regla de prefijo: una regla
+        de prefijo les borraria su @ de las slides en silencio."""
+        for real in ["@tu_nutriologo", "@tu_coach", "@tu_barberia", "@su_casa",
+                     "@tucan_cafe", "@luiscordova.ia"]:
             self.assertEqual(g.instagram_usuario_real({"instagram_usuario": real}), real, real)
 
     def test_estilo_visual_no_deja_doble_punto(self):
@@ -157,6 +162,33 @@ class TestBriefLean(unittest.TestCase):
         self.assertIn("COMPLETAMENTE VACIO", p)
         self.assertIn("SOLO en la portada y en el cierre", p)
 
+
+    def test_el_molde_de_portada_se_explica_aunque_no_haya_archivos(self):
+        """El bug real: la nota que explica la imagen adjunta colgaba de `hay_refs`, pero en el
+        flujo normal NO hay archivos de referencia (las capturas se leen por vision). Resultado:
+        se adjuntaba la portada como molde y el prompt no la mencionaba — viajaba muda y la
+        cohesion de la serie corria a ciegas."""
+        p = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, ancla=True, n_refs=0)
+        self.assertIn("REFERENCIA DE ESTILO", p)
+        self.assertIn("PORTADA de esta serie", p)
+        # Sin molde y sin refs, no hay imagen adjunta: la nota NO debe aparecer.
+        p_sin = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, ancla=False, n_refs=0)
+        self.assertNotIn("REFERENCIA DE ESTILO", p_sin)
+
+    def test_tratamiento_visual_llega_al_prompt(self):
+        """El onboarding PREGUNTA foto/ilustracion/graficos. Antes el prompt pedia siempre
+        'una ilustracion', asi que a quien elegia fotografia se le daba lo contrario."""
+        casos = {"escena-fotografica": "fotografia realista",
+                 "ilustracion": "ilustracion",
+                 "graficos": "grafico o diagrama"}
+        for clave, esperado in casos.items():
+            marca = dict(MARCA); marca["tratamiento_visual"] = clave
+            for rol, slide in [("gancho", SLIDES[0]), ("valor", SLIDES[1])]:
+                p = g.build_prompt(slide, rol, marca, TOTAL, sin_molde=True)
+                self.assertIn(esperado, p, f"{clave} / {rol}")
+        # Un valor desconocido no revienta: cae a ilustracion.
+        marca = dict(MARCA); marca["tratamiento_visual"] = "loquesea"
+        self.assertIn("ilustracion", g.build_prompt(SLIDES[0], "gancho", marca, TOTAL, sin_molde=True))
 
     def test_referencias_solo_estilo_visual(self):
         """Con refs: son REFERENCIA DE ESTILO (estetica), aplicada con la paleta/texto de arriba (framing positivo)."""

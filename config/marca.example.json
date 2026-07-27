@@ -13,10 +13,9 @@
   "elemento_serie": "numero",
   "tratamiento_visual": "ilustracion",
   "molde": "auto",
-  "instagram_usuario": "@tu_pasteleria",
+  "instagram_usuario": "@tu_usuario",
   "upload_post_user": "",
   "plataformas": [
     "instagram"
-  ],
-  "carpeta_salida": ""
+  ]
 }
