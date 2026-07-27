@@ -133,10 +133,6 @@ class TestBriefLean(unittest.TestCase):
         self.assertIn("COMPLETAMENTE VACIO", p)
         self.assertIn("SOLO en la portada y en el cierre", p)
 
-    def test_molde_no_copia_el_handle(self):
-        """El molde copia TOKENS de estilo de la portada, pero nunca su @usuario del pie."""
-        p = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, ancla=True, sin_molde=False)
-        self.assertIn("NI el @usuario de su pie", p)
 
     def test_referencias_solo_estilo_visual(self):
         """Con refs: son REFERENCIA DE ESTILO (estetica), aplicada con la paleta/texto de arriba (framing positivo)."""

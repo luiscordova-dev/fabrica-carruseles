@@ -498,8 +498,7 @@ def bloque_referencias(ancla: bool, n_refs: int, sin_molde: bool, role: str = "v
     if ancla:
         partes.append(
             "MOLDE: la 1a imagen adjunta es la PORTADA. Copia solo sus TOKENS de estilo (paleta, tipografia, luz, "
-            "texturas). NO su composicion/layout, NI su sujeto, NI el @usuario de su pie: esta slide sigue SU "
-            "estructura (abajo), su propio sujeto, y su pie es el que diga esa estructura.")
+            "texturas). NO su composicion/layout ni su sujeto: esta slide sigue SU estructura (abajo) y su propio sujeto.")
     if n_refs > 0:
         cual = "Las DEMAS imagenes adjuntas" if ancla else "Las imagenes adjuntas"
         rol_txt = ROL_A_TEXTO.get(role, "las slides de VALOR (las de en medio)")
