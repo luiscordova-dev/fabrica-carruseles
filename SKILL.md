@@ -28,9 +28,15 @@ responda preguntas y apruebe. Tú haces lo técnico y tú propones; ella confirm
 - `reference/estructura-carrusel.md` — **cómo se escribe un buen carrusel. Léelo antes de escribir el copy.**
 - `walkthroughs/` — guiones para el onboarding y para sacar las dos llaves (API keys).
 
-> **Rutas.** Cuando la skill está instalada, su carpeta es `~/.claude/skills/carrusel/`.
-> En este documento la llamo `$SK`. Usa **siempre rutas completas** al correr comandos, porque el
+> **Rutas.** Cuando la skill está instalada, su carpeta es `~/.claude/skills/carrusel/`; en este
+> documento la llamo **`$SK`**. Usa **siempre rutas completas** al correr comandos, porque el
 > directorio de trabajo puede cambiar entre un comando y otro.
+>
+> **Dónde se guardan los carruseles (`$OUT`).** Cada carrusel vive en **UNA sola carpeta**, la del
+> usuario — nunca dentro de la skill, y **nunca se duplica**. `$OUT` sale de `config/marca.json`: el
+> campo **`carpeta_salida`** si existe; si no, **`~/Desktop/Carruseles/`** (o el HOME si no hay
+> Escritorio). Cada carrusel es una subcarpeta **`$OUT/<fecha>-<tema-corto>/`**. Créala antes de
+> escribir el copy y usa esa ruta en TODOS los comandos (generar, editar, publicar).
 
 ---
 
@@ -272,7 +278,7 @@ Pregunta tres cosas:
 el scroll, cómo entregar valor (una idea por slide, dar el "qué" no todo el "cómo"), el CTA, el
 presupuesto de texto y las reglas de mecánica. Síguelo para que el copy convierta, no solo informe.
 Luego escribe el copy siguiendo esa estructura (Gancho → Valor → Cierre), en el tono de `marca.json`.
-Guárdalo como `carrusel.md` en una carpeta nueva `$SK/outputs/<fecha>-<tema-corto>/`.
+Guárdalo como `carrusel.md` en una carpeta nueva `$OUT/<fecha>-<tema-corto>/`.
 
 **Formato exacto por slide** (encabezado + un bloque de tres comillas invertidas con el texto):
 
@@ -316,13 +322,13 @@ que la persona pegó ya viven en tu `marca.json` como estilo; no dependes de nin
 `completa` y si falta tu @ de Instagram. Luego genera (recuerda: `PY` es el Python del venv):
 
 ```
-PY "$SK/scripts/generar.py" "$SK/outputs/<carpeta>" --dry-run
-PY "$SK/scripts/generar.py" "$SK/outputs/<carpeta>"
+PY "$SK/scripts/generar.py" "$OUT/<carpeta>" --dry-run
+PY "$SK/scripts/generar.py" "$OUT/<carpeta>"
 ```
 
 Necesita `KIE_API_KEY` en el `.env`. Cuesta ~$0.10 por slide; avísale el costo antes ("6 slides,
 ~$0.60"). El tiempo varía según la carga de Kie AI (de ~1 min a varios minutos) — **si tarda, no
-falló, está generando**; espera a que termine. Las imágenes quedan en `$SK/outputs/<carpeta>/slides/`.
+falló, está generando**; espera a que termine. Las imágenes quedan en `$OUT/<carpeta>/slides/`.
 
 ### Paso 6 — Afinar en silencio (ANTES de mostrar) y luego revisar
 
@@ -332,7 +338,7 @@ dentro y solo entregas cuando ya está bien** — el usuario nunca ve los tropie
 **Regla de oro (guía oficial del modelo): si una slide está ~80% bien, EDÍTALA — NO la regeneres desde cero.**
 Editar es quirúrgico, barato y **conserva el texto en español** (regenerar lo re-escribe y puede dañarlo).
 
-1. **LEE cada slide** (`Read` sobre cada `slide-NN.png` en `$SK/outputs/<carpeta>/slides/`). Míralas de verdad.
+1. **LEE cada slide** (`Read` sobre cada `slide-NN.png` en `$OUT/<carpeta>/slides/`). Míralas de verdad.
 2. **Contra este checklist** (una falla = hay que corregirla):
    - **IDIOMA:** TODO el texto en **español**, cero palabras en otro idioma.
    - **MARCADOR DE SERIE:** el `n/total` con la **MISMA** forma, tamaño, tipografía, posición y **color de acento**
@@ -346,7 +352,7 @@ Editar es quirúrgico, barato y **conserva el texto en español** (regenerar lo 
    - **CIERRE — CTA EN RECUADRO:** el "Comenta PALABRA" va dentro de un recuadro/panel integrado.
 3. **CORRIGE cada falla EDITÁNDOLA** — instrucción chica y directa (el acento de la marca es el color más vivo):
    ```
-   PY "$SK/scripts/generar.py" "$SK/outputs/<carpeta>" --editar N --instruccion "quita el @usuario del footer"
+   PY "$SK/scripts/generar.py" "$OUT/<carpeta>" --editar N --instruccion "quita el @usuario del footer"
    ```
    Ejemplos por tipo de falla:
    - @ en slide de valor → *"quita el @usuario del footer"*
@@ -382,7 +388,7 @@ con la **pregunta abierta**.
 **Antes de publicar, corre el dry-run** y muéstrale qué se va a subir:
 
 ```
-PY "$SK/scripts/publicar.py" "$SK/outputs/<carpeta>" --caption-file "$SK/outputs/<carpeta>/caption.txt" --palabra "AGENTE" --dry-run
+PY "$SK/scripts/publicar.py" "$OUT/<carpeta>" --caption-file "$OUT/<carpeta>/caption.txt" --palabra "AGENTE" --dry-run
 ```
 
 (Omite `--palabra` si el cierre es una pregunta abierta.) Cuando la persona confirme, publica de verdad
@@ -395,12 +401,10 @@ va). Conectar más cuentas es sencillo: desde https://app.upload-post.com/manage
 Nota: Facebook, Pinterest y Reddit piden datos extra que la skill aún no manda; las 100% listas con solo
 fotos + caption son instagram, tiktok, linkedin, x, threads, bluesky, discord y telegram.
 
-**Copia local automática + se abre sola.** Al publicar de verdad, la skill **guarda sola** una copia del carrusel
-(imágenes + caption + copy) en el **Escritorio**, carpeta `Carruseles/<carpeta>/` (si no hay Escritorio, en el HOME),
-y **abre esa carpeta** en Finder (Mac) o el Explorador (Windows) para que la persona vea sus slides al instante.
-`publicar.py` imprime la ruta (`📁 Copia local guardada en: …`). **Relátalo en simple**: *"Y te guardé tu carrusel
-en la carpeta **Carruseles** de tu Escritorio 📁 — ya te la abrí para que lo veas."* (Funciona igual en Mac y Windows;
-los `outputs/` de la skill nunca se borran.)
+**Se abre sola al publicar.** El carrusel YA vive en la carpeta del usuario (`$OUT`, ver Rutas arriba) desde que
+se generó — **no hay copias duplicadas**. Al publicar, `publicar.py` **abre esa carpeta** en Finder (Mac) o el
+Explorador (Windows) e imprime la ruta. **Relátalo en simple**: *"Tu carrusel está en la carpeta **Carruseles** 📁 —
+ya te la abrí para que lo veas."*
 
 ### Paso 8 — Cierre (solo la PRIMERA vez, breve, sin sonar a venta)
 Cuando la persona genere/publique su primer carrusel, comparte UNA sola vez algo así (adáptalo):

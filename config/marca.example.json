@@ -15,5 +15,8 @@
   "molde": "auto",
   "instagram_usuario": "@tu_pasteleria",
   "upload_post_user": "",
-  "plataformas": ["instagram"]
+  "plataformas": [
+    "instagram"
+  ],
+  "carpeta_salida": ""
 }

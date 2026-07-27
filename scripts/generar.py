@@ -176,36 +176,6 @@ def densidad_de(marca: Dict) -> str:
     return d if d in DENSIDADES_VALIDAS else "media"
 
 
-TRATAMIENTOS_VISUALES = {"escena-fotografica", "ilustracion", "graficos"}
-
-
-def tratamiento_visual_de(marca: Dict) -> str:
-    """Como se resuelve el elemento visual (atributo de la ESTETICA del usuario):
-    'escena-fotografica' (producto/objeto real en escena con luz y sombras),
-    'ilustracion' (dibujo/caricatura/vector fundido con el diseño), o
-    'graficos' (esquemas/diagramas con iconos, flechas y anotaciones, estilo educativo).
-    Si el campo no viene, se infiere del estilo_visual; ante empate, 'ilustracion'
-    (coincide con el estilo por defecto de la skill)."""
-    t = str(marca.get("tratamiento_visual", "")).strip().lower()
-    if t in TRATAMIENTOS_VISUALES:
-        return t
-    estilo = str(marca.get("estilo_visual", "")).lower()
-    foto_signals = ["foto", "fotograf", "luz natural", "escena", "producto en primer plano",
-                    "editorial", "stock", "primer plano"]
-    graf_signals = ["esquema", "diagrama", "icono", "iconos", "infografia", "infografía",
-                    "flecha", "grafico educativo", "educativo", "mapa mental"]
-    ilus_signals = ["ilustracion", "ilustración", "caricatura", "flat", "vector", "dibujo", "3d",
-                    "render", "acuarela", "isometric"]
-    foto = sum(1 for s in foto_signals if s in estilo)
-    graf = sum(1 for s in graf_signals if s in estilo)
-    ilus = sum(1 for s in ilus_signals if s in estilo)
-    if foto > graf and foto > ilus:
-        return "escena-fotografica"
-    if graf > foto and graf > ilus:
-        return "graficos"
-    return "ilustracion"
-
-
 MOLDES_VALIDOS = {"auto", "on", "off"}
 
 
@@ -341,82 +311,6 @@ def slide_role(num: int, total: int) -> str:
     return "valor"
 
 
-ELEMENTOS_SERIE_VALIDOS = {"numero", "badge", "barra", "numero+flecha-footer"}
-
-
-def elemento_serie_de(marca: Dict) -> str:
-    """Convencion de serie elegida por el usuario (modelada de sus referencias).
-    Default 'numero' (n/total discreto abajo-derecha) si falta o es invalida.
-    UNA sola convencion por carrusel, con posicion fija e identica en todas las slides."""
-    e = str(marca.get("elemento_serie", "numero")).strip().lower()
-    return e if e in ELEMENTOS_SERIE_VALIDOS else "numero"
-
-
-def numero_serie_instr(num: int, total: int, elemento: str = "numero", hay_refs: bool = False) -> str:
-    """Instruccion del UNICO elemento de serie del carrusel. El texto es IDENTICO en todas las
-    slides (solo cambia el valor n/total) para minimizar la variacion entre imagenes: misma
-    posicion, mismo tamano, mismo tratamiento en toda la serie.
-
-    MARCADOR CONSISTENTE aun CON referencias (hay_refs): las slides se generan por separado (en
-    paralelo), asi que "sigue la convencion de las refs" NO basta — cada slide elige por su cuenta y
-    el marcador DERIVA (una slide lo pone en un ovalo arriba, otra en una pastilla abajo, otra en un
-    engrane). Por eso, aunque haya referencias, aqui se CLAVA UNA sola convencion FIJA, concreta e
-    IDENTICA en las N slides: misma forma, mismo tamano, misma POSICION y mismo color/tipografia. Las
-    referencias informan el ESTILO del marcador (numero simple vs badge, tratamiento a mano), pero esa
-    eleccion se toma UNA vez y se redacta byte-identica en cada prompt (solo cambia "n/total"). Sin
-    referencias, el usuario modela su convencion via elemento_serie ('numero'|'badge'|'barra'|
-    'numero+flecha-footer'), tambien clavada e identica en toda la serie."""
-    if hay_refs:
-        # Convencion FIJA modelada del estilo de las referencias (numero de progreso simple con trazo a
-        # mano), clavada identica en las N slides. Se veta explicitamente encerrarlo en ovalo/pastilla/
-        # engrane: son justo las formas en que derivaba entre slides. El texto es byte-identico salvo el
-        # valor "n/total" (que refleja el avance), para que N generaciones independientes lo repitan igual.
-        return (f'MARCADOR DE SERIE (ancla fija): numero "{num}/{total}" SIEMPRE en la ESQUINA SUPERIOR '
-                f'DERECHA, pequeno (folio de pagina), color de acento, trazo a mano debajo. Numero simple, SIN '
-                f'recuadro/pastilla/badge/circulo/ovalo/engrane. IDENTICO en las {total} slides — MISMO tamano '
-                f'(ni mas grande ni mas chico entre slides), forma, posicion, tipografia, color; lo UNICO que '
-                f'cambia es el numero.')
-    if elemento == "badge":
-        return (f'SERIE: numero "{num}/{total}" en una pastilla/badge en la ESQUINA SUPERIOR DERECHA, '
-                f'mismo estilo, tipografia, color, posicion y tamano en toda la serie.')
-    if elemento == "barra":
-        return (f'SERIE: en el FOOTER, barra de progreso horizontal con "{num}/{total}" al lado, mismo estilo, '
-                f'grosor, tipografia, color y posicion en toda la serie (refleja el avance {num} de {total}).')
-    if elemento == "numero+flecha-footer":
-        base_desliza = ('con una flecha "SWIPE ->" pequena INTEGRADA en el footer (nunca flotando a media slide)'
-                        if num < total else 'sin flecha de deslizar (es la ultima)')
-        return (f'SERIE: numero "{num}/{total}" en la ESQUINA INFERIOR DERECHA, pequeno y discreto, misma '
-                f'tipografia, color y posicion en toda la serie, {base_desliza}.')
-    return (f'SERIE: numero "{num}/{total}" en la ESQUINA INFERIOR DERECHA, pequeno y discreto (como el folio '
-            f'de una pagina), MISMO TAMANO EXACTO en las {total} slides (ni mas grande ni mas chico entre una y '
-            f'otra), misma tipografia, color y posicion en toda la serie.')
-
-
-def extras_prohibidos(elemento_serie: str, hay_refs: bool = False) -> str:
-    """Prohibe los recursos que NO son parte de la anatomia default (mas elementos = mas deriva de
-    posicion y mas typos). Solo entran cuando el usuario los trae en sus referencias; la skill nunca
-    los agrega sola. Se omite de la lista el que sea la convencion de serie elegida, para no contradecirla.
-
-    JERARQUIA referencias > defaults: CON referencias adjuntas (hay_refs) esta lista fija NO manda —
-    el usuario ya trajo su lenguaje visual; se sigue lo que muestran las referencias y solo se veta
-    agregar cosas que ELLAS no usan."""
-    if hay_refs:
-        swipe = ("" if elemento_serie == "numero+flecha-footer"
-                 else ' NUNCA flechas "desliza ->"/"DESLIZA" aunque la ref las traiga (salen inconsistentes).')
-        return ("Usa SOLO recursos de serie/decoracion que aparezcan en las REFERENCIAS (numero, badge, barra, "
-                "dots): no inventes otros. Una sola convencion identica en toda la serie." + swipe)
-    extras = ["numeros fantasma", "barras de progreso", "badges o pastillas",
-              "tarjetas comparativas", "stickers o washi tape", "footer de swipe"]
-    if elemento_serie == "badge":
-        extras.remove("badges o pastillas")
-    elif elemento_serie == "barra":
-        extras.remove("barras de progreso")
-    elif elemento_serie == "numero+flecha-footer":
-        extras.remove("footer de swipe")
-    return ("NO agregues por tu cuenta " + ", ".join(extras) +
-            ": no son parte de la anatomia default (solo si el usuario los trae en sus referencias).")
-
-
 def contar_bullets(body: str) -> int:
     """Cuenta las lineas no vacias del cuerpo = cuantos bullets/ideas trae la slide."""
     return len([ln for ln in (body or "").splitlines() if ln.strip()])
@@ -433,84 +327,6 @@ def slides_copy_corto(slides: List[Dict], total: int, densidad: str) -> List[int
         if slide_role(s["number"], total) == "valor" and contar_bullets(s.get("content", "")) < 3:
             cortas.append(s["number"])
     return sorted(cortas)
-
-
-def tratamiento_visual_instr(tratamiento: str) -> str:
-    """Instruccion de COMO se integra el elemento visual. Redactada en positivo (lo que SI debe pasar)
-    + veto explicito, porque los modelos obedecen mejor lo generativo que la sola prohibicion.
-    El visual SIEMPRE vive dentro de la composicion, jamas como bloque recortado tipo diapositiva."""
-    if tratamiento == "escena-fotografica":
-        positivo = ("el producto/objeto vive DENTRO de una escena fotografica real (sobre una superficie, luz natural "
-                    "y sombras suaves que lo anclan al mismo fondo); el texto va sobre las zonas limpias de esa foto")
-    elif tratamiento == "graficos":
-        positivo = ("el visual es un ESQUEMA/DIAGRAMA educativo (iconos simples, flechas, etiquetas y anotaciones) con "
-                    "la misma paleta y trazo, sin recuadro propio, conectado al texto (estilo carrusel educativo)")
-    else:
-        positivo = ("la ilustracion/caricatura esta FUNDIDA con el diseño: mismo fondo, paleta y trazo, sin recuadro "
-                    "propio, parte de la composicion")
-    return ("VISUAL: " + positivo + ". Integrado, sin marcos ni bordes duros. PROHIBIDO: foto recortada en rectangulo, "
-            "collage pegado, o layout 'texto a un lado + imagen al otro' tipo diapositiva de PowerPoint.")
-
-
-def anatomia_valor(densidad: str) -> str:
-    """Como se resuelve el cuerpo de una slide de valor segun la densidad. La densidad regula CUANTA
-    info por slide; la estetica la pone la marca, no esta funcion."""
-    if densidad == "aireada":
-        return "- AIREADA: 1-2 bullets muy cortos (o visual protagonista con 0-1 bullet). Mucho aire, una idea respirando."
-    if densidad == "completa":
-        return ("- MINI-GUIA: 3-5 bullets con punto (keyword en negrita), opcional 1 anotacion. El TEXTO manda, en "
-                "jerarquia clara con AIRE entre bloques; el visual es pequeno (ambiente o esquina), NUNCA dominante.")
-    return "- MEDIA: 2-3 bullets cortos con punto (keyword en negrita). Equilibrio informacion/aire, escaneable."
-
-
-def presupuesto_texto(densidad: str) -> str:
-    """Presupuesto de texto POR DENSIDAD (v2.3): 'completa' es una mini-guia real (mas texto), no se
-    capa a ~30 palabras. Se mantiene el aviso anti-typos en todas."""
-    if densidad == "completa":
-        return ("- Texto (MINI-GUIA): titulo <=8, subtitulo <=12, 3-5 bullets <=10 palabras + opcional 1 anotacion; "
-                "bien escrito, sin faltas, alto contraste.")
-    if densidad == "aireada":
-        return ("- Texto ESTRICTO (AIREADA): titulo <=8, subtitulo <=10, 0-2 bullets <=7 palabras (~30). "
-                "Mucho aire; menos texto = menos errores.")
-    return ("- Texto ESTRICTO (MEDIA): titulo <=8, subtitulo <=10, 2-3 bullets <=7 palabras (~30). "
-            "Cero parrafos; mas texto y mas elementos = mas deriva y mas errores.")
-
-
-def anatomia_header(densidad: str) -> str:
-    """Encabezado del bloque de anatomia, segun densidad."""
-    if densidad == "completa":
-        return "ANATOMIA (MINI-GUIA: el TEXTO manda, jerarquia clara con aire entre bloques):"
-    return "ANATOMIA (maximo 5 elementos, ~30 palabras — equilibrio, no espectaculo):"
-
-
-# Rol interno -> como se nombra al modelar por rol contra la referencia.
-ROL_A_TEXTO = {"gancho": "la PORTADA", "valor": "las slides de VALOR (las de en medio)",
-               "recompensa": "el CIERRE / CTA"}
-
-
-def bloque_referencias(ancla: bool, n_refs: int, sin_molde: bool, role: str = "valor") -> str:
-    """Texto que explica los ROLES de las imagenes adjuntas (image_input):
-    - ancla: la PRIMERA imagen es la portada-molde (solo tokens de estilo, no composicion/sujeto).
-    - n_refs: hay N referencias del usuario adjuntas (modelar su lenguaje visual, adaptado a la marca).
-    - sin_molde: el carrusel corre sin molde-portada -> refuerza la consistencia de serie por texto.
-    - role: el rol de ESTA slide (gancho/valor/recompensa) para modelar ROL->ROL contra la referencia."""
-    partes = []
-    if ancla:
-        partes.append(
-            "MOLDE: la 1a imagen adjunta es la PORTADA. Copia solo sus TOKENS de estilo (paleta, tipografia, luz, "
-            "texturas). NO su composicion/layout ni su sujeto: esta slide sigue SU estructura (abajo) y su propio sujeto.")
-    if n_refs > 0:
-        cual = "Las DEMAS imagenes adjuntas" if ancla else "Las imagenes adjuntas"
-        rol_txt = ROL_A_TEXTO.get(role, "las slides de VALOR (las de en medio)")
-        partes.append(
-            f"{cual} son REFERENCIAS del usuario. Modela sus PRINCIPIOS (composicion, densidad, jerarquia, tipo de "
-            "elementos, serie/footer, tipografia, energia) POR ROL: portada->portada, medias->valor, ultima->cierre; "
-            f"esta slide es {rol_txt}. NO copies su layout, textos, @/handle/URL, ilustraciones, logos ni COLORES: manda "
-            "la PALETA del usuario (solo se modela la tipografia). Pieza ORIGINAL. Las capturas traen la UI de Instagram "
-            "(avatares, flechas, like/comentar, historias, puntos): NUNCA la dibujes; el diseño ocupa TODO el lienzo.")
-    if sin_molde:
-        partes.append("SERIE: manten identica paleta, tipografias y tratamiento en TODAS las slides.")
-    return ("\n".join(partes) + "\n\n") if partes else ""
 
 
 def _saturacion_hex(hexcol: str) -> int:
