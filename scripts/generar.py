@@ -27,7 +27,6 @@ import time
 import re
 import base64
 import argparse
-import requests
 from pathlib import Path
 from typing import Optional, Dict, List
 from datetime import datetime
@@ -39,6 +38,14 @@ try:
     load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 except ImportError:
     pass  # dotenv es opcional; la key puede venir del entorno
+
+# `requests` solo hace falta para HABLAR con Kie AI (generar imagenes). Armar prompts y correr
+# los tests no lo necesita, y el usuario final puede no tenerlo todavia. Por eso se importa
+# suave: si falta, el modulo carga igual y solo truena — con mensaje claro — al generar de verdad.
+try:
+    import requests
+except ImportError:                                              # pragma: no cover
+    requests = None
 
 # --- Rutas de la skill ---
 SKILL_ROOT = Path(__file__).resolve().parent.parent
@@ -129,19 +136,24 @@ def load_marca() -> Dict:
 # llenó. JAMÁS deben llegar al modelo (en la prueba real "@tu_usuario" se renderizó literal en
 # 5 de 6 slides). El nucleo se compara normalizado (minusculas, sin @, sin espacios).
 PLACEHOLDERS_USUARIO = {"tu_usuario", "usuario", "tuusuario", ""}
+# Ademas del set exacto: cualquier @ que empiece con "tu_"/"su_" es un placeholder de la
+# plantilla. `marca.example.json` trae "@tu_pasteleria" y SKILL.md manda usarlo como base,
+# asi que sin esta regla se colaba literal a las slides — justo el bug que este blindaje evita.
+PREFIJOS_PLACEHOLDER = ("tu_", "su_")
 
 
 def instagram_usuario_real(marca: Dict) -> Optional[str]:
     """Devuelve el @ REAL del usuario, o None si el campo esta vacio o trae un placeholder.
     Placeholders que se tratan como SIN usuario (comparando el nucleo normalizado):
-    '@tu_usuario', 'tu_usuario', '@usuario', 'usuario', '@tuusuario', '' y None.
+    '@tu_usuario', 'tu_usuario', '@usuario', 'usuario', '@tuusuario', '' y None,
+    mas cualquiera que empiece con 'tu_' o 'su_' (ej. '@tu_pasteleria' de la plantilla).
     Cuando devuelve None, los prompts OMITEN por completo cualquier mencion de @/usuario."""
     raw = marca.get("instagram_usuario")
     if raw is None:
         return None
     limpio = str(raw).strip()
     nucleo = limpio.lstrip("@").strip().lower()
-    if nucleo in PLACEHOLDERS_USUARIO:
+    if nucleo in PLACEHOLDERS_USUARIO or nucleo.startswith(PREFIJOS_PLACEHOLDER):
         return None
     return limpio if limpio.startswith("@") else "@" + limpio
 
@@ -364,7 +376,7 @@ def build_prompt(slide: Dict, role: str, marca: Dict, total: int,
     c_fondo = colores.get("fondo", "#FFFFFF")
     c_texto = colores.get("texto", "#111111")
     tipografia_full = str(marca.get("tipografia", "sans-serif bold, limpia y moderna")).strip().rstrip(".")
-    estilo_full = str(marca.get("estilo_visual", "ilustracion flat minimalista, alto contraste")).strip()
+    estilo_full = str(marca.get("estilo_visual", "ilustracion flat minimalista, alto contraste")).strip().rstrip(".")
     # @ REAL del usuario o None si esta vacio/placeholder. Si es None, NINGUN prompt menciona @/usuario.
     handle = instagram_usuario_real(marca)
     num = slide["number"]
@@ -446,7 +458,15 @@ def build_prompt(slide: Dict, role: str, marca: Dict, total: int,
         f"Acorta el copy de esta slide (o el estilo visual de tu marca) y vuelve a intentar.")
 
 
+def exigir_requests() -> None:
+    """Mensaje claro (no un stack trace) si falta la libreria para hablar con Kie AI."""
+    if requests is None:
+        sys.exit("Falta una libreria para conectarse a internet. Instalala asi:\n"
+                 "    pip install requests")
+
+
 def create_task(api_key: str, prompt: str, image_input: Optional[List[str]] = None) -> Optional[str]:
+    exigir_requests()
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     input_params = {
         "prompt": prompt,

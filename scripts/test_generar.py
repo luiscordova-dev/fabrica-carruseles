@@ -116,6 +116,30 @@ class TestBriefLean(unittest.TestCase):
         p = g.build_prompt(SLIDES[0], "gancho", marca, TOTAL, sin_molde=True)
         self.assertNotIn("tu_usuario", p)
 
+    def test_placeholder_de_la_plantilla_se_omite(self):
+        """marca.example.json trae '@tu_pasteleria' y SKILL.md manda usarlo como base.
+        Antes se colaba literal a las slides: el set solo cubria '@tu_usuario'."""
+        import json as _json
+        from pathlib import Path as _Path
+        ejemplo = _json.loads(
+            (_Path(g.__file__).resolve().parent.parent / "config" / "marca.example.json").read_text())
+        self.assertIsNone(g.instagram_usuario_real(ejemplo),
+                          "el @ de marca.example.json NO debe tratarse como real")
+        for falso in ["@tu_pasteleria", "@su_negocio", "tu_marca"]:
+            self.assertIsNone(g.instagram_usuario_real({"instagram_usuario": falso}), falso)
+
+    def test_usuarios_reales_que_empiezan_con_tu_no_se_pierden(self):
+        """El blindaje mira el prefijo 'tu_' CON guion bajo: '@tucan_cafe' es un @ real."""
+        for real in ["@tucan_cafe", "@tulipanes", "@surf_shop", "@luiscordova.ia"]:
+            self.assertEqual(g.instagram_usuario_real({"instagram_usuario": real}), real, real)
+
+    def test_estilo_visual_no_deja_doble_punto(self):
+        """estilo_visual terminado en punto generaba '...de stock.. Tipografia:' hacia el modelo."""
+        marca = dict(MARCA)
+        marca["estilo_visual"] = "mini-guia densa, sin fotos de stock."
+        p = g.build_prompt(SLIDES[1], "valor", marca, TOTAL, sin_molde=True)
+        self.assertNotIn("de stock..", p)
+
     def test_handle_real_solo_portada_y_cierre(self):
         gancho = g.build_prompt(SLIDES[0], "gancho", MARCA, TOTAL, sin_molde=True)
         valor = g.build_prompt(SLIDES[1], "valor", MARCA, TOTAL, sin_molde=True)

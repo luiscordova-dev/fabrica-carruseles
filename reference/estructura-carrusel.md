@@ -123,7 +123,7 @@ la aplica automáticamente al generar; aquí queda para que la entiendas y escri
 4. **CUERPO** — UNA sola decisión por slide, decidida por cuántas ideas trae el copy (regla estructural, no preferencia):
    - **2 o más bullets → el texto manda.** El visual pasa a **secundario**: pequeño, de apoyo, integrado en una esquina o como textura/ambiente de fondo. **NUNCA** un visual protagonista a media pantalla compitiendo con los bullets.
    - **0–1 idea de texto → el visual es protagonista** (integrado en la escena). A lo sumo 1 línea de apoyo; nada de listas.
-5. **SERIE**: el número **`n/total`** discreto, en la **esquina inferior derecha**, con instrucción idéntica en todas las slides. **@usuario solo en portada y cierre.**
+5. **SERIE**: el número **`n/total`** discreto, en la **esquina superior derecha**, con instrucción idéntica en todas las slides. **@usuario solo en portada y cierre.**
 
 **Portada (slide 1):** gancho grande + subtítulo + un elemento protagonista.
 **Cierre (última):** el CTA ("Comenta PALABRA") va **destacado dentro de un recuadro/panel** integrado a la

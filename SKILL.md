@@ -145,7 +145,7 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
    | Guardado | **NADA de archivos** — Claude LEE las capturas del chat (visión) y extrae su estilo a `marca.json` | — |
    | densidad · tipografía · tratamiento · `elemento_serie` | **INFERIDOS** de las refs → **sobrescriben** `marca.json` → confirmar en 1 línea (**NO se preguntan**) | se **preguntan** (3 preguntas, una a la vez) |
    | Molde | **ON** (la portada modela tu estilo inferido → luego ancla al resto) → cohesión fuerte | **ON** (portada ancla, solo tokens de estilo) |
-   | Serie / footer | siguen el **patrón de las refs** (1 convención idéntica) | default **número abajo-derecha** clavado |
+   | Serie / footer | siguen el **patrón de las refs** (1 convención idéntica) | default **número arriba-derecha** clavado |
    | Prompt | modelado **ROL→ROL** (portada→portada, valor→valor, cierre→cierre) | anatomía default 4 zonas + CTA en recuadro |
    | Copy | presupuesto de la densidad **inferida** | presupuesto de la densidad elegida |
 
@@ -192,7 +192,7 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
       `tipografia` (guárdala con una descripción, ej. "serif elegante tipo editorial"). **Importa**: sin esto todo
       sale con la misma condensada bold "corporativa"; la letra le da personalidad.
    4. **Guarda en `marca.json`.** `molde` queda en `"auto"` → **encendido** (la portada ancla la serie, copiando
-      solo tokens de estilo). **`elemento_serie` = default `"numero"`** (abajo-derecha clavado, idéntico en todas).
+      solo tokens de estilo). **`elemento_serie` = default `"numero"`** (arriba-derecha clavado, idéntico en todas).
    5. **Cierra con la puerta abierta:** *"Y cuando veas un carrusel que te encante, pásamelo y subo el nivel 📸."*
 
    #### AMBOS caminos terminan IGUAL
@@ -210,13 +210,13 @@ TODOS sus carruseles, así que vale la pena hacerlo bien una vez:
      **palabra clave** y el **texto** salen del **usuario y de NUESTRA estructura de copy** (`reference/estructura-carrusel.md`),
      **jamás** de la referencia. (Bug real: una referencia con *"evaluación gratuita / plan personalizado / llamada"* le
      contaminó el CTA sugerido — el usuario no ofrece eso; su cierre es *"Comenta PALABRA y te mando la guía"*.)
-   - **referencias > defaults:** los defaults 'clavados' (número abajo-derecha, anatomía fija, extras vetados) aplican
+   - **referencias > defaults:** los defaults 'clavados' (número arriba-derecha, anatomía fija, extras vetados) aplican
      **SOLO SIN referencias**. Con referencias, el `elemento_serie`/footer, la tipografía y la densidad se **infieren
      del patrón de las refs** — manteniendo **UNA sola convención por serie, idéntica en todas las slides** (eso NO se negocia).
    - **El visual SIEMPRE va integrado** en la composición, nunca como foto recortada en un bloque tipo diapositiva.
    - **La composición la pone el sistema; la estética la eliges tú:** la skill no impone "cálido" ni "frío".
      La anatomía default es fija y lean (eyebrow opcional → título con una palabra en color de acento → subtítulo
-     → un solo cuerpo: bullets *o* visual → número de serie abajo-derecha; ver `reference/estructura-carrusel.md`).
+     → un solo cuerpo: bullets *o* visual → número de serie arriba-derecha; ver `reference/estructura-carrusel.md`).
    - **No agregues números fantasma, barras, badges, cards ni stickers por tu cuenta** — solo si la referencia
      los trae. Si una referencia usa un **badge**, una **barra de progreso** o una **flecha "desliza →" en el
      footer** como marca de serie, guárdalo en `marca.json` como `elemento_serie` (`"badge"` | `"barra"` |

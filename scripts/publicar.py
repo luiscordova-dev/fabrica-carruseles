@@ -31,7 +31,7 @@ import sys
 import json
 import argparse
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 try:
     from dotenv import load_dotenv
@@ -118,13 +118,6 @@ def build_caption(args) -> str:
     print('❌ Falta el pie de foto. Pásalo con --caption "..." o --caption-file caption.txt')
     sys.exit(1)
 
-
-def _carpeta_base_default() -> Path:
-    """Donde dejar los carruseles: el Escritorio si existe (facil de hallar), si no el HOME.
-    Funciona en Mac y Windows: Path.home() resuelve el usuario en ambos."""
-    desktop = Path.home() / "Desktop"
-    base = desktop if desktop.is_dir() else Path.home()
-    return base / "Carruseles"
 
 
 def abrir_carpeta(path: Path) -> bool:
