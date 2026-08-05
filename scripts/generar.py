@@ -646,10 +646,25 @@ def editar_slide(api_key: str, slides_dir: Path, num: int, instruccion: str) -> 
     if not url:
         print(f"   ❌ No pude subir la slide {num} para editar.")
         return False
+    # Cada edicion es una tirada nueva del modelo: si la instruccion solo pide el cambio puntual,
+    # la tipografia deriva un poco en cada corrida (caso real: tras varias ediciones una serie
+    # quedo con unos titulos en MAYUSCULAS y otros en minusculas). Por eso el motor anexa SIEMPRE
+    # la tipografia de la marca como invariante, sin depender de que quien escribe la instruccion
+    # se acuerde. Suave a proposito: sin marca.json (o ilegible) se edita igual que antes.
+    invariante = ""
+    if MARCA_FILE.exists():
+        try:
+            with open(MARCA_FILE, "r", encoding="utf-8") as f:
+                tipografia = (json.load(f).get("tipografia") or "").strip()
+            if tipografia:
+                invariante = (" INVARIANTE DE TIPOGRAFIA (si el cambio toca texto, el resultado "
+                              f"debe cumplirlo; el texto que no toques no se re-escribe): {tipografia}")
+        except Exception:
+            pass  # una marca ilegible jamas debe tumbar una edicion
     prompt = (f"Edita esta imagen de un carrusel de Instagram. Cambio pedido: {instruccion}. "
               "Deja TODO lo demas EXACTAMENTE igual: el mismo texto en español (sin re-escribirlo), los "
               "mismos colores, la misma tipografia, la misma composicion y el mismo numero de serie. "
-              "No regeneres la escena; solo aplica ese cambio.")
+              f"No regeneres la escena; solo aplica ese cambio.{invariante}")
     tid = create_task(api_key, prompt, image_input=[url])
     out_url = poll_task(api_key, tid, f"[editar slide {num}]") if tid else None
     if out_url and download(out_url, path):

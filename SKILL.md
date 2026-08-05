@@ -350,7 +350,10 @@ Editar es quirúrgico, barato y **conserva el texto en español** (regenerar lo 
      (flecha, badge, etiqueta, adorno) desentona → corregir.
    - **LEGIBILIDAD:** texto completo, sin cortes, sin faltas, sin duplicados.
    - **CIERRE — CTA EN RECUADRO:** el "Comenta PALABRA" va dentro de un recuadro/panel integrado.
-3. **CORRIGE cada falla EDITÁNDOLA** — instrucción chica y directa (el acento de la marca es el color más vivo):
+3. **CORRIGE cada falla EDITÁNDOLA** — instrucción chica y directa (el acento de la marca es el color más vivo).
+   El motor anexa solo la **tipografía de `marca.json` como invariante** a cada edición (para que la serie no
+   derive edición tras edición), así que NO la repitas en tu instrucción — pide únicamente el cambio puntual,
+   y nunca pidas un estilo de letra que contradiga el de la marca:
    ```
    PY "$SK/scripts/generar.py" "$OUT/<carpeta>" --editar N --instruccion "quita el @usuario del footer"
    ```
