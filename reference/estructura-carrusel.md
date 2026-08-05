@@ -88,8 +88,9 @@ Cumple la promesa del gancho y pide **una sola acción** (nunca tres llamados qu
 - **Pregunta abierta** (conversación): *"¿Cuál de estas te roba más horas? Cuéntame abajo."*
 - **Siguiente paso suave** (<5 min): *"Guarda esto y elige UNA tarea para automatizar esta semana."*
 
-El CTA se siente como **continuación lógica** del contenido, no como un anexo. Refuerza el resultado
-con los "sabores" que la gente quiere: **rápido, fácil, sin riesgo, barato** ("en 7 días", "sin código", "gratis").
+El CTA se siente como **continuación lógica** del contenido, no como un anexo. Refuerza con el
+**RESULTADO primero**. "Rápido" y "reversible" se valen solo DESPUÉS del resultado, nunca solos; y
+**jamás justifiques el recurso por barato, fácil o sin riesgo** — degrada justo lo que estás regalando.
 
 ### Reglas de oro
 - **Honestidad total.** Cero resultados, cifras o casos inventados. Un dato real modesto vende más
@@ -129,7 +130,7 @@ la aplica automáticamente al generar; aquí queda para que la entiendas y escri
 **Cierre (última):** el CTA ("Comenta PALABRA") va **destacado dentro de un recuadro/panel** integrado a la
 estética de la marca (un post-it, una pastilla, un marco punteado o un panel de color) — con la **palabra
 clave en el mayor peso visual** — + **@usuario** integrado en el footer + opcional 1 línea corta de refuerzo
-(rápido/fácil/gratis). El panel es parte del diseño, **nunca un elemento pegado encima** ni un banner genérico.
+(el resultado, nunca "fácil/barato/gratis"). El panel es parte del diseño, **nunca un elemento pegado encima** ni un banner genérico.
 
 **No hay flecha de "deslizar →"**: se quitó porque salía inconsistente y ensuciaba la composición.
 
@@ -191,7 +192,7 @@ consecuencia de haber dado primero, no el objetivo declarado de cada post.
 Comenta la palabra → un sistema le manda el recurso por mensaje directo → queda capturado como lead.
 - La palabra va en el caption **y** en la última slide.
 - Palabra simple y fácil de escribir.
-- Varía la palabra por publicación (AGENTE, MAPA, SOP…) apuntando al mismo recurso: así sabes qué post trajo cada lead.
+- **La palabra es FIJA por recurso:** tiene que coincidir con la que tu automatización de DM espera. Cambiarla por post rompe la entrega automática.
 - **Interés = lead.** Cada comentario o guardado es alguien que levantó la mano; hay que darle seguimiento rápido (el valor de un lead cae con las horas).
 
 ### Hashtags con criterio
