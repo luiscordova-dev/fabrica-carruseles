@@ -56,33 +56,71 @@ REFERENCIAS_DIR = SKILL_ROOT / "config" / "referencias"
 REF_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_REF_BYTES = 10 * 1024 * 1024   # 10MB por archivo (limite de la File Upload API)
 
-# --- API Kie AI (nano-banana-pro) ---
+# --- API Kie AI ---
 KIE_API_BASE = "https://api.kie.ai/api/v1/jobs"
 KIE_CREATE_TASK = f"{KIE_API_BASE}/createTask"
 KIE_RECORD_INFO = f"{KIE_API_BASE}/recordInfo"
 KIE_FILE_UPLOAD = "https://kieai.redpandaai.co/api/file-base64-upload"  # sube archivos (no gasta creditos de generacion)
-MODEL = "nano-banana-pro"
 ASPECT_RATIO = "4:5"   # Instagram carrusel (vertical). El encuadre va SOLO por este parametro,
 RESOLUTION = "1K"      # nunca en el prompt. 1K (~1024px) basta para IG y es mas rapido/barato que 2K/4K.
 FORMAT = "png"
 MAX_POLL_ATTEMPTS = 120   # ~10 min por slide: Kie AI a veces encola y tarda varios minutos
 POLL_INTERVAL = 5
-MAX_IMAGE_INPUT = 8       # tope de imagenes de referencia por tarea (nano-banana-pro)
 
-# --- Presupuesto de tamano del campo `prompt` de Kie ---
-# Hallazgos empiricos (createTask + polling, nano-banana-pro, 2026-07):
-#   - createTask ACEPTA cualquier tamano; si algo esta mal, el fallo aparece al GENERAR (state=fail).
-#   - Prompts de 5k, 10k y 15k caracteres GENERARON bien; uno de 20k fallo con
-#     failMsg "Your prompt cannot exceed 5000 characters" (failCode 400).
-#   - O sea: Kie declara 5000 en su error pero NO lo aplica de forma consistente; tolera >=15k.
-# Elegimos 10000 como TECHO conservador del assert: por debajo del punto real de fallo (~15-20k)
-# y muy por encima de nuestro tamano normal (~4k). Ademas el andamiaje se compacto para que un
-# carrusel normal quede ~4k chars, con margen aun si Kie llegara a exigir 5000.
-# Medimos chars Y bytes (el espanol acentuado infla los bytes en UTF-8) y aplicamos el limite
-# sobre los BYTES (siempre >= chars), la medida mas conservadora.
-KIE_PROMPT_LIMIT = 10000  # limite oficial del spec de Kie para nano-banana-pro (prompt maxLength: 10000)
+# Kie acepta hasta 20 peticiones nuevas cada 10 segundos (limite por cuenta). Pasarse
+# devuelve 429 y la peticion NO entra a la cola: se pierde. Mandamos de 10 en 10 para
+# quedar holgados aunque otra cosa este generando con la misma llave.
+MAX_TAREAS_EN_PARALELO = 10
+
+# Que significa cada `code` de Kie, en español. Sin esto, un 402 (sin creditos) se veia
+# como "no devolvio taskId: {json crudo}" y no habia forma de saber que estaba pasando.
+CODIGOS_KIE = {
+    401: "Tu llave de Kie no es valida. Revisa KIE_API_KEY en el .env.",
+    402: "Te quedaste sin creditos en Kie. Recarga en https://kie.ai y vuelve a correr esto.",
+    404: "El endpoint de Kie no existe (¿cambio la API?).",
+    422: "Kie rechazo los parametros. Suele ser el prompt o el aspect_ratio.",
+    429: "Kie esta recibiendo demasiadas peticiones tuyas. Espera un minuto y reintenta.",
+    433: "Tu subllave de Kie llego a su tope de uso.",
+    455: "Kie esta en mantenimiento. Intenta en un rato.",
+    500: "Error del servidor de Kie. Reintenta.",
+    501: "Kie no pudo generar la imagen.",
+    505: "Esa funcion esta desactivada en Kie.",
+}
+
+# --- Modelo y sus limites ---
+# CADA MODELO TIENE SUS PROPIOS TOPES (spec oficial de Kie). Van juntos a proposito:
+# copiar el tope de un modelo al otro es un bug silencioso — el error no aparece al crear
+# la tarea, sino al GENERAR (state=fail), despues de haber gastado la espera.
+# Precio @1K en CREDITOS: nano-banana-2 = 8 | nano-banana-pro = 12. El costo por slide en USD vive en SKILL.md (un solo hogar).
+LIMITES_MODELO = {
+    "nano-banana-2":   {"image_input": 14, "prompt": 20000},
+    "nano-banana-pro": {"image_input": 8,  "prompt": 10000},
+}
+MODELO_DEFAULT = "nano-banana-2"
+
+# El modelo sale de, en orden: la variable de entorno CARRUSEL_MODELO (para probar sin
+# tocar nada), el campo "modelo" de marca.json, y si no, el default.
+MODEL = os.environ.get("CARRUSEL_MODELO") or MODELO_DEFAULT
+MAX_IMAGE_INPUT = LIMITES_MODELO[MODEL]["image_input"]
+
+# --- Presupuesto de tamano del campo `prompt` ---
+# Se mide en chars Y en bytes (el espanol acentuado infla los bytes en UTF-8) y el limite
+# se aplica sobre los BYTES, que es la medida mas conservadora.
 PROMPT_SAFETY_RATIO = 0.95
-PROMPT_SAFETY_LIMIT = int(KIE_PROMPT_LIMIT * PROMPT_SAFETY_RATIO)  # 9500 (con el brief lean ~1700, sobra muchisimo)
+KIE_PROMPT_LIMIT = LIMITES_MODELO[MODEL]["prompt"]
+PROMPT_SAFETY_LIMIT = int(KIE_PROMPT_LIMIT * PROMPT_SAFETY_RATIO)
+
+
+def aplicar_modelo(nombre: str) -> None:
+    """Fija el modelo activo y SUS limites. Se llama al cargar marca.json."""
+    global MODEL, MAX_IMAGE_INPUT, KIE_PROMPT_LIMIT, PROMPT_SAFETY_LIMIT
+    if nombre not in LIMITES_MODELO:
+        sys.exit(f"ERROR: modelo '{nombre}' desconocido. "
+                 f"Validos: {', '.join(LIMITES_MODELO)}.")
+    MODEL = nombre
+    MAX_IMAGE_INPUT = LIMITES_MODELO[nombre]["image_input"]
+    KIE_PROMPT_LIMIT = LIMITES_MODELO[nombre]["prompt"]
+    PROMPT_SAFETY_LIMIT = int(KIE_PROMPT_LIMIT * PROMPT_SAFETY_RATIO)
 
 
 def medir_prompt(prompt: str):
@@ -128,7 +166,11 @@ def load_marca() -> Dict:
         print("   (@tu_usuario, densidad y tipografía genéricas en vez de las tuyas).")
         sys.exit(1)
     with open(MARCA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+        marca = json.load(f)
+    # El campo "modelo" es opcional. Si viene, fija el modelo Y sus limites.
+    if not os.environ.get("CARRUSEL_MODELO") and marca.get("modelo"):
+        aplicar_modelo(marca["modelo"])
+    return marca
 
 
 # --- Blindaje contra placeholders del onboarding ---
@@ -411,7 +453,10 @@ def build_prompt(slide: Dict, role: str, marca: Dict, total: int,
             f"Estilo visual: {estilo}. Tipografia: {tipografia}.\n"
             f"Paleta: fondo {c_fondo}, texto {c_texto}, acento {c_sec} (el acento resalta UNA palabra clave del "
             f"titulo y el numero de serie).\n"
-            f"Composicion limpia, ordenada y con aire. Texto en ESPAÑOL, nitido y legible, EXACTAMENTE como se da."
+            f"Composicion limpia, ordenada y con aire.\n"
+            f"EL TEXTO SE TRANSCRIBE PALABRA POR PALABRA tal como se entrega entre comillas: mismas "
+            f"palabras, mismos acentos, misma puntuacion. Es español de MEXICO — se escribe computadora, "
+            f"no ordenador; pasante, no becario. Nitido y legible."
             f"{ref_nota}")
         marcador = (f'\n- Arriba a la derecha, el numero "{num}/{total}" pequeno en {c_sec}, del mismo tamaño '
                     f"y estilo en todas las slides.")
@@ -423,14 +468,17 @@ def build_prompt(slide: Dict, role: str, marca: Dict, total: int,
             return (f"{cabecera}\n\n"
                     "PORTADA que para el scroll:\n"
                     f'- Titular GRANDE (el mayor peso visual), con una palabra clave en {c_sec}: "{title}"\n'
-                    f'- Debajo, un subtitulo mas chico: "{body}"\n'
-                    f"- {v_protagonista}"
+                    + (f'- Debajo, un subtitulo mas chico, EXACTAMENTE este y nada mas: "{body}"\n'
+                       if body.strip() else
+                       '- NO pongas subtitulo ni ninguna otra linea de texto: la portada lleva SOLO el titular.\n')
+                    + f"- {v_protagonista}"
                     f"{handle_portada}{marcador}\n")
         if role == "valor":
             return (f"{cabecera}\n\n"
                     "SLIDE DE VALOR:\n"
                     f'- Titulo arriba, con una palabra clave en {c_sec}: "{title}"\n'
-                    f'- Debajo, el contenido como bullets legibles, tal cual:\n"{body}"\n'
+                    f'- Debajo, EXACTAMENTE estas lineas y ninguna mas (si es una sola linea, va una sola):\n"{body}"\n'
+                    f'- No agregues lineas, bullets ni ideas que no esten arriba.\n'
                     f"- {v_apoyo}\n"
                     "- El pie de la slide va COMPLETAMENTE VACIO: sin @usuario, sin firma, sin texto de ningun tipo "
                     "(el @ aparece SOLO en la portada y en el cierre)."
@@ -439,8 +487,10 @@ def build_prompt(slide: Dict, role: str, marca: Dict, total: int,
         return (f"{cabecera}\n\n"
                 "CIERRE (invitacion a actuar):\n"
                 f'- Titulo arriba, con una palabra clave en {c_sec}: "{title}"\n'
-                f'- El llamado va DENTRO de un recuadro/panel integrado al diseño, con la palabra clave en el mayor peso: "{body}"\n'
-                f"- El titulo y el llamado son el UNICO texto de la slide; {v_cierre}"
+                + (f'- El llamado va DENTRO de un recuadro/panel integrado al diseño, con la palabra clave en el mayor peso, EXACTAMENTE este texto: "{body}"\n'
+                   if body.strip() else
+                   '- NO agregues texto debajo del titulo: el titulo es el unico texto.\n')
+                + f"- El titulo y el llamado son el UNICO texto de la slide; {v_cierre}"
                 f"{handle_cierre}{marcador}\n")
 
     # --- Presupuesto de tamano: nunca mandamos a Kie un prompt que sabemos que fallaria. ---
@@ -518,13 +568,23 @@ def create_task(api_key: str, prompt: str, image_input: Optional[List[str]] = No
     payload = {"model": MODEL, "input": input_params}
     try:
         r = requests.post(KIE_CREATE_TASK, headers=headers, json=payload, timeout=30)
-        r.raise_for_status()
-        data = r.json()
-        if data.get("code") == 200:
+        # OJO: Kie devuelve sus errores DENTRO del cuerpo (HTTP 200 + "code": 402), asi que
+        # el cuerpo se lee ANTES de raise_for_status o el motivo real se pierde.
+        try:
+            data = r.json()
+        except ValueError:
+            data = {}
+        code = data.get("code")
+        if code == 200:
             task_id = (data.get("data") or {}).get("taskId")
             if task_id:
                 return task_id
-        print(f"   ❌ Kie AI no devolvio taskId: {data}")
+        motivo = CODIGOS_KIE.get(code) or CODIGOS_KIE.get(r.status_code)
+        if motivo:
+            print(f"   ❌ {motivo}")
+        else:
+            print(f"   ❌ Kie AI no devolvio taskId (code {code or r.status_code}): "
+                  f"{data.get('msg') or r.text[:200]}")
     except Exception as e:
         print(f"   ❌ Error creando tarea: {e}")
         if hasattr(e, "response") and getattr(e, "response", None) is not None:
@@ -791,7 +851,7 @@ def main():
             n_refs_slide = len(slide_imgs) - (1 if usa_molde else 0)
             print(f"\n{'='*60}\nFASE 2 — {len(rest)} slides en paralelo"
                   f"{' (con molde de la portada)' if usa_molde else ' (sin molde)'}\n{'='*60}\n")
-            with ThreadPoolExecutor(max_workers=len(rest)) as ex:
+            with ThreadPoolExecutor(max_workers=min(len(rest), MAX_TAREAS_EN_PARALELO)) as ex:
                 futures = [ex.submit(procesar, s, slide_role(s["number"], total), slide_imgs,
                                      usa_molde, n_refs_slide, not usa_molde, usa_molde) for s in rest]
                 for fut in as_completed(futures):
@@ -804,7 +864,7 @@ def main():
         imgs = ensamblar_image_input(None, ref_urls)
         print(f"\n{'='*60}\n{len(objetivo)} slides en paralelo (sin molde"
               f"{', con referencias del usuario' if ref_urls else ''})\n{'='*60}\n")
-        with ThreadPoolExecutor(max_workers=len(objetivo)) as ex:
+        with ThreadPoolExecutor(max_workers=min(len(objetivo), MAX_TAREAS_EN_PARALELO)) as ex:
             futures = [ex.submit(procesar, s, slide_role(s["number"], total), imgs,
                                  False, len(imgs), True, False) for s in objetivo]
             for fut in as_completed(futures):

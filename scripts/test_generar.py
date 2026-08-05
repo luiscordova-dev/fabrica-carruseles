@@ -86,12 +86,12 @@ class TestPresupuesto(unittest.TestCase):
 class TestBriefLean(unittest.TestCase):
     def test_idioma_espanol(self):
         p = g.build_prompt(SLIDES[0], "gancho", MARCA, TOTAL, sin_molde=True)
-        self.assertIn("ESPAÑOL", p)
+        self.assertIn("español de MEXICO", p)
 
     def test_idioma_espanol_con_referencias(self):
         """Aun con referencias (que pueden estar en ingles), el brief pide texto en español."""
         p = g.build_prompt(SLIDES[0], "gancho", MARCA, TOTAL, n_refs=2, sin_molde=True)
-        self.assertIn("ESPAÑOL", p)
+        self.assertIn("español de MEXICO", p)
 
     def test_copy_exacto_presente(self):
         """El copy del usuario va literal en el prompt (el modelo lo renderiza tal cual)."""
