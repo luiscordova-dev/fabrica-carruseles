@@ -273,6 +273,12 @@ Pregunta tres cosas:
      *"Comenta X y te la mando"*, sin mencionar formato ni qué incluye).
    - **Solo que comenten / platiquen** → cierre con una **pregunta abierta**, sin palabra clave.
 
+⛔ **El estilo NO se pregunta por pieza: sale de `config/marca.json`** — colores, tipografía,
+`estilo_visual`, densidad y `elemento_serie` ya quedaron definidos en el onboarding (Paso 1). Ábrelo y
+genera con lo que diga, tal cual. Si hay que cambiarlo, se **edita ese archivo ANTES de generar** — nunca
+a media pieza y **jamás copiando un preset encima**: cambiar de estilo después obliga a regenerar todas
+las slides, y cada regeneración se paga (el costo está en el Paso 5).
+
 ### Paso 4 — Escribir el copy
 **Primero lee `reference/estructura-carrusel.md`** — ahí está TODO: los patrones de gancho que paran
 el scroll, cómo entregar valor (una idea por slide, dar el "qué" no todo el "cómo"), el CTA, el
@@ -318,13 +324,18 @@ Reglas al escribir (críticas — el test real falló aquí):
 `generar.py` **aborta** con un aviso para correr el onboarding — no genera con datos de ejemplo. (Las referencias
 que la persona pegó ya viven en tu `marca.json` como estilo; no dependes de ningún archivo de imagen.)
 
-**Corre SIEMPRE primero `--dry-run`** (no gasta) y **lee sus avisos** — te marca si el copy quedó corto para densidad
-`completa` y si falta tu @ de Instagram. Luego genera (recuerda: `PY` es el Python del venv):
+**El flujo es EXACTAMENTE este: `--dry-run` (no gasta) → si se ve bien, generar TODAS las slides.**
+Corre SIEMPRE primero el `--dry-run` y **lee sus avisos** — te marca si el copy quedó corto para densidad
+`completa` y si falta tu @ de Instagram. Solo cuando salga limpio, genera (recuerda: `PY` es el Python del venv):
 
 ```
 PY "$SK/scripts/generar.py" "$OUT/<carpeta>" --dry-run
 PY "$SK/scripts/generar.py" "$OUT/<carpeta>"
 ```
+
+⛔ **NO existe un paso de "genera una slide de prueba".** Una slide suelta para ver cómo va cuesta lo mismo
+que cualquier otra operación, así que el único ensayo gratis es el `--dry-run` — y es el que evita quemar
+saldo. Si algo sale torcido, se **edita** esa slide en el Paso 6; no se paga por probar antes.
 
 Necesita `KIE_API_KEY` en el `.env`. Cuesta ~$0.10 por slide; avísale el costo antes ("6 slides,
 ~$0.60"). El tiempo varía según la carga de Kie AI (de ~1 min a varios minutos) — **si tarda, no
@@ -380,13 +391,17 @@ un elemento), **edítalo** igual (`--editar`), no regeneres. El checklist de 6a 
 > No prometas perfección a la primera; sí promete que mejora con cada feedback.
 
 ### Paso 7 — Publicar (con permiso explícito)
-**Escribe el caption con estrategia** (ver la PARTE B de `reference/estructura-carrusel.md`: gancho
-corto + micro-valor que se sostiene solo + UN solo CTA + hashtags de nicho). Guárdalo como
-`caption.txt` dentro de la carpeta del carrusel — es más robusto que pasarlo en línea (sobre todo
-con saltos de línea o comillas). El caption remata con el cierre del
-Paso 3: si el objetivo era entregar un recurso, **incluye la palabra para comentar** (pásala también
-con `--palabra` para que el dry-run confirme que quedó en el caption); si era solo conversación, remata
-con la **pregunta abierta**.
+**El caption va CORTO: solo el CTA, y el mismo para todas las redes.** El valor ya está en las slides;
+el caption solo dispara la acción. ⛔ **Sin hashtags** — ni al final ni en el primer comentario — y sin
+gancho ni micro-valor de relleno. Guárdalo como `caption.txt` dentro de la carpeta del carrusel: es más
+robusto que pasarlo en línea (sobre todo con saltos de línea o comillas).
+
+El caption es el cierre del Paso 3: si el objetivo era entregar un recurso, **el CTA lleva la palabra para
+comentar** (pásala también con `--palabra` para que el dry-run confirme que quedó en el caption); si era
+solo conversación, va la **pregunta abierta**.
+
+🔒 **La palabra es FIJA por recurso** y va en el caption **y** en la última slide: tiene que coincidir con la
+que espera la automatización de DM — cambiarla por post rompe la entrega.
 
 **Antes de publicar, corre el dry-run** y muéstrale qué se va a subir:
 

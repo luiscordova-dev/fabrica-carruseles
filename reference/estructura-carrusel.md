@@ -1,8 +1,11 @@
 # Cómo se escribe un carrusel que convierte
 
-Esta es la guía que sigue la skill para escribir el copy de las slides **y** el caption. La meta
+Esta es la guía que sigue la skill para escribir el copy de las slides. La meta
 no es "informar": es **cambiar un comportamiento** y **generar suficiente confianza para que la
 venta pase después**. Todo lo de abajo está al servicio de eso.
+
+⛔ **El caption NO se escribe aquí.** Va **corto —solo el CTA— y sin hashtags**, igual para todas las
+redes, y su regla vive en `SKILL.md` §Paso 7. Una sola versión, un solo lugar.
 
 Estructura mental de cualquier carrusel:
 **Gancho (por qué me quedo) → Valor (lo que aprendo) → Cierre + CTA (la recompensa y el siguiente paso).**
@@ -173,40 +176,12 @@ convención se mantiene idéntica en todas las slides.
 
 ---
 
-## PARTE B — El caption (pie de foto) con estrategia
-
-El caption no resume el carrusel: dispara la acción y alimenta la entrega automática.
-
-### Estructura
-1. **Gancho corto (1 línea)** — refuerza la tensión de la slide 1 para quien llega por el feed.
-2. **Micro-valor (2-4 líneas)** — una idea útil que se sostiene sola, aunque no abran el carrusel. Da, no anuncies.
-3. **UN CTA claro** — con la **palabra clave** bien visible: *"Comenta AGENTE y te mando el mapa. 👇"*
-
-### Da mucho, pide poco
-Inclina la balanza fuerte hacia **dar valor gratis**. Cada pieza útil construye confianza, y la
-confianza baja el costo de que te compren después. Estándar: **el valor se sostiene solo** — si
-alguien solo lee el caption y las slides y nunca compra, aun así salió ganando. Vender es la
-consecuencia de haber dado primero, no el objetivo declarado de cada post.
-
-### El CTA conecta con la entrega por DM
-Comenta la palabra → un sistema le manda el recurso por mensaje directo → queda capturado como lead.
-- La palabra va en el caption **y** en la última slide.
-- Palabra simple y fácil de escribir.
-- **La palabra es FIJA por recurso:** tiene que coincidir con la que tu automatización de DM espera. Cambiarla por post rompe la entrega automática.
-- **Interés = lead.** Cada comentario o guardado es alguien que levantó la mano; hay que darle seguimiento rápido (el valor de un lead cae con las horas).
-
-### Hashtags con criterio
-Sirven para **encontrar a la persona correcta**, no para sumar vistas sueltas. Un puñado
-**específico** del nicho + problema (`#automatizacionpymes`, `#ventasb2b`), no listas genéricas
-(`#exito`, `#motivacion`). Al final del caption o en el primer comentario.
-
----
-
 ## Checklist antes de publicar
 - ☐ ¿La slide 1 para el scroll en 2 segundos (dolor, número, promesa, contraste o enemigo)?
 - ☐ ¿Una sola idea por slide, dentro del presupuesto de texto?
 - ☐ ¿Doy el "qué" con claridad y dejo el "cómo" fino para la oferta?
 - ☐ ¿UN solo CTA, con la palabra clave en la última slide y en el caption?
 - ☐ ¿Todo dato/caso es real (cero métricas inventadas)?
-- ☐ ¿El caption da valor que se sostiene solo, aunque nadie compre?
+- ☐ ¿El valor se sostiene solo — si alguien solo ve las slides y nunca compra, aun así salió ganando?
+- ☐ ¿El caption va CORTO (solo el CTA) y SIN hashtags?
 - ☐ ¿Título = titular real (no la palabra del rol)?
